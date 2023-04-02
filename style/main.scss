@@ -1,0 +1,15 @@
+@use '../node_modules/bulma/bulma.sass';
+
+.small-panel {
+  max-width: 650px;
+  margin: auto;
+}
+
+.center-vertically {
+  min-height: 100vh;
+  display: flex;
+}
+
+.center-vertically > * {
+  flex: 0 0 66.7%;
+}
