@@ -1,4 +1,4 @@
-import { AsyncStatus, useAsync, useAuth } from "@/hooks";
+import { AsyncStatus, useAsync, useAuth } from "@/components/hooks";
 import { useForm } from "react-hook-form";
 import { CreateUser, LoginData } from "../shared-types";
 import axios, { AxiosError, isAxiosError } from "axios";
