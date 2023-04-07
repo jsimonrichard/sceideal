@@ -1,0 +1,38 @@
+@import "../node_modules/bulma/bulma.sass";
+
+$background: #003359;
+
+html,
+body {
+  background-color: $background;
+}
+
+.small-panel {
+  max-width: 650px;
+  margin: auto;
+}
+
+.center-vertically {
+  min-height: 100vh;
+  display: flex;
+  background-color: inherit;
+}
+
+.center-vertically > * {
+  background-color: $white;
+}
+
+.center-vertically > * {
+  flex: 0 0 66.7%;
+}
+
+.background-outlined {
+  background-color: $background;
+  color: white;
+  border-color: white;
+
+  &:hover {
+    color: $background;
+    background-color: white;
+  }
+}

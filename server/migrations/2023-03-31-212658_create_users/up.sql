@@ -1,0 +1,7 @@
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR UNIQUE NOT NULL,
+  hash CHAR(60) NOT NULL,
+  email email UNIQUE NOT NULL,
+  joined_on timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

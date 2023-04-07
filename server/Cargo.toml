@@ -1,0 +1,27 @@
+[package]
+name = "sceideal"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1.68"
+axum = { version = "0.6.4", features = ["multipart"] }
+axum-extra = { version = "0.7.2", features = ["cookie"] }
+axum-macros = "0.3.7"
+bcrypt = "0.14.0"
+cfg-if = "1"
+chrono = { version = "0.4.24", features = ["serde"] }
+color-eyre = "0.6.2"
+cookie = "0.17.0"
+diesel = { version = "2.0.3", features = ["postgres", "r2d2", "chrono"] }
+diesel_migrations = { version = "2.0.0", features = ["postgres"] }
+dotenvy = "0.15.7"
+indexmap = "1.9.3"
+rand = { version = "0.8.5", features = ["min_const_gen", "std_rng"] }
+retainer = "0.3.0"
+serde = { version = "1.0.159", features = ["derive"] }
+thiserror = "1.0.40"
+tokio = { version = "1.26.0", features = ["full"] }
+tracing = "0.1.37"
+tracing-subscriber = "0.3.16"
+typeshare = "1.0.1"
