@@ -1,5 +1,4 @@
 import Head from "next/head";
-import Link from "next/link";
 
 export default function Home() {
   return (
@@ -15,7 +14,7 @@ export default function Home() {
       </Head>
       <main>
         <div className="p-2 center-vertically">
-          <div className="panel small-panel">
+          <div className="panel small-panel is-primary">
             <p className="panel-heading">Schedule a CPT session</p>
             <div className="panel-block">
               Appointment Type:
@@ -24,21 +23,10 @@ export default function Home() {
               </div>
             </div>
             <div className="panel-block is-justify-content-end">
-              <a className="button is-link">Next</a>
+              <a className="button is-primary">Next</a>
             </div>
           </div>
         </div>
-        <Link
-          className="button m-2 background-outlined"
-          style={{
-            position: "absolute",
-            right: 0,
-            bottom: 0,
-          }}
-          href="/login"
-        >
-          Provider Login
-        </Link>
       </main>
     </>
   );

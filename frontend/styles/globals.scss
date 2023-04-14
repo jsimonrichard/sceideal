@@ -1,10 +1,16 @@
-@import "../node_modules/bulma/bulma.sass";
+$primary: #003359;
+$background: #f8f8f8;
+$menu-item-hover-background-color: #ebebeb;
 
-$background: #003359;
+@import "../node_modules/bulma/bulma.sass";
 
 html,
 body {
   background-color: $background;
+}
+
+.has-navbar-fixed-top {
+  padding-top: 4rem;
 }
 
 .small-panel {
@@ -26,13 +32,7 @@ body {
   flex: 0 0 66.7%;
 }
 
-.background-outlined {
+.navbar {
+  border-bottom: 1px solid $primary;
   background-color: $background;
-  color: white;
-  border-color: white;
-
-  &:hover {
-    color: $background;
-    background-color: white;
-  }
 }

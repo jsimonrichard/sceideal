@@ -19,7 +19,7 @@ function Login() {
 
   return (
     <div className="p-2 center-vertically">
-      <div className="panel small-panel">
+      <div className="panel small-panel is-primary">
         <p className="panel-heading">Login</p>
         <div className="panel-block">
           <form className="is-flex-grow-1" onSubmit={onSubmit}>
@@ -62,7 +62,7 @@ function Login() {
                 <button
                   className={classNames({
                     button: true,
-                    "is-link": true,
+                    "is-primary": true,
                     "is-loading":
                       status == AsyncStatus.Pending ||
                       status == AsyncStatus.Success, // waiting for redirect

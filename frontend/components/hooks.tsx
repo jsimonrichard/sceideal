@@ -8,7 +8,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { CreateUser, LoginData, UserData } from "./shared-types";
+import { CreateUser, LoginData, UserData } from "../shared-types";
 
 export enum AsyncStatus {
   Idle,
@@ -58,25 +58,42 @@ export const useAsync = <I, T, E>(
     if (immediate) {
       execute(data);
     }
-  }, [immediate, execute]);
+  }, []);
 
   return { execute, status, value, error };
 };
 
-const AuthContext = createContext<ReturnType<typeof _useAuth>>(
-  {} as ReturnType<typeof _useAuth>
+const AuthContext = createContext<ReturnType<typeof useProvideAuth>>(
+  {} as ReturnType<typeof useProvideAuth>
 );
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const router = useRouter();
+  const auth = useContext(AuthContext);
+  return auth;
+};
 
 export function ProvideAuthContext({ children }: { children: JSX.Element }) {
-  const auth = _useAuth();
+  const auth = useProvideAuth();
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }
 
-function _useAuth() {
+function useProvideAuth() {
   const router = useRouter();
   const [user, setUser] = useState<UserData | null>();
+
+  const { status: initialLoadStatus } = useAsync<
+    null,
+    AxiosResponse<UserData>,
+    Error | AxiosError
+  >(
+    () => axios.get<UserData>("/api/user"),
+    (response) => {
+      setUser(response.data);
+    },
+    () => {},
+    true // immediate evaluation
+  );
 
   const login = (redirectUrl?: string) =>
     useAsync<LoginData, AxiosResponse<UserData>, Error | AxiosError>(
@@ -111,5 +128,5 @@ function _useAuth() {
       }
     );
 
-  return { user, login, sign_up, logout };
+  return { user, login, sign_up, logout, initialLoadStatus };
 }
