@@ -1,1 +1,1 @@
-DROP DOMAIN phone_number;
+DROP DOMAIN PHONE_NUMBER;
