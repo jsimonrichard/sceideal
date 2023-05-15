@@ -1,5 +1,8 @@
-CREATE TABLE local_login (
-    id INT REFERENCES users PRIMARY KEY,
+CREATE TABLE local_logins (
+    user_id INT PRIMARY KEY REFERENCES users,
     hash CHAR(60) NOT NULL,
-    last_login TIMESTAMP
+
+    updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp
 );
+
+SELECT diesel_manage_updated_at('local_logins'::regclass);

@@ -1,1 +1,1 @@
-DROP TABLE appointment CASCADE;
+DROP TABLE appointments CASCADE;

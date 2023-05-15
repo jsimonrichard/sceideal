@@ -1,4 +1,4 @@
-CREATE TABLE non_user (
+CREATE TABLE non_users (
     id SERIAL PRIMARY KEY,
     
     email TEXT NOT NULL,

@@ -1,1 +1,1 @@
-DROP TABLE non_user CASCADE;
+DROP TABLE non_users CASCADE;

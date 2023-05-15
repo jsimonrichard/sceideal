@@ -1,9 +1,9 @@
 CREATE TABLE groups (
     id SERIAL PRIMARY KEY,
-    name TEXT,
+    name TEXT NOT NULL,
     
     -- Is mutable by the admin UI panel
-    is_mutable BOOLEAN,
+    is_mutable BOOLEAN NOT NULL DEFAULT true,
 
     -- Permissions
     can_sign_up_for_appointments BOOLEAN NOT NULL DEFAULT true,

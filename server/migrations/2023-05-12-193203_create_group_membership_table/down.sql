@@ -1,1 +1,1 @@
-DROP TABLE group_membership;
+DROP TABLE group_memberships;

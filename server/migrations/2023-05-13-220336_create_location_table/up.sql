@@ -8,7 +8,7 @@ CREATE TABLE locations (
 
     -- Time stuff
     created_on TIMESTAMP NOT NULL DEFAULT current_timestamp,
-    updated_on TIMESTAMP NOT NULL DEFAULT current_timestamp,
+    updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
 
     PRIMARY KEY(user_id, name)
 );

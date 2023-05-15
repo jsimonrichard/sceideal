@@ -1,1 +1,1 @@
-DROP TABLE local_login CASCADE;
+DROP TABLE local_logins CASCADE;

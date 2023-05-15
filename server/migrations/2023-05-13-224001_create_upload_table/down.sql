@@ -1,1 +1,1 @@
-DROP TABLE upload;
+DROP TABLE uploads;

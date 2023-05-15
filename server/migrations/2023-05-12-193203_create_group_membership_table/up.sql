@@ -1,4 +1,4 @@
-CREATE TABLE group_membership (
+CREATE TABLE group_memberships (
     user_id INT REFERENCES users,
     group_id INT REFERENCES groups,
 

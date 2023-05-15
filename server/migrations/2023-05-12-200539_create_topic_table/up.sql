@@ -1,4 +1,4 @@
-CREATE TABLE topic (
+CREATE TABLE topics (
     user_id INT REFERENCES users NOT NULL,
     public BOOLEAN NOT NULL DEFAULT true,
 
@@ -10,9 +10,9 @@ CREATE TABLE topic (
 
     -- Time stuff
     created_on TIMESTAMP NOT NULL DEFAULT current_timestamp,
-    updated_on TIMESTAMP NOT NULL DEFAULT current_timestamp,
+    updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
 
     PRIMARY KEY (user_id, name)
 );
 
-SELECT diesel_manage_updated_at('topic'::regclass);
+SELECT diesel_manage_updated_at('topics'::regclass);

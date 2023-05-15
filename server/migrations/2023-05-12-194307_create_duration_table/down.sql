@@ -1,1 +1,1 @@
-DROP TABLE duration CASCADE;
+DROP TABLE durations CASCADE;

@@ -1,0 +1,1 @@
+DROP TABLE openid_logins;
