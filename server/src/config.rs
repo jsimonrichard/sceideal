@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use axum::{extract::State, Json};
 use color_eyre::{eyre::eyre, Result};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
@@ -12,17 +13,22 @@ use tokio::{
     runtime::Handle,
     sync::{mpsc::channel, RwLock},
 };
+use typeshare::typeshare;
 
-#[derive(Serialize, Deserialize)]
+use crate::AppState;
+
+#[derive(Deserialize)]
 pub struct Config {
     pub database_url: String,
     pub bind_address: SocketAddr,
-    pub openid_providers: HashMap<String, OpenIdProvider>,
+    #[serde(default)]
+    pub redirect_to_first_oauth_provider: bool,
+    pub oauth_providers: HashMap<String, OAuthProvider>,
     pub live_reloading: bool,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct OpenIdProvider {
+#[derive(Deserialize)]
+pub struct OAuthProvider {
     pub client_id: String,
     pub client_secret: String,
     pub issuer_url: String,
@@ -87,4 +93,43 @@ impl Config {
         let config_str = String::from_utf8(tokio::fs::read(path).await?)?;
         Ok(toml::from_str(&config_str)?)
     }
+}
+
+#[typeshare]
+#[derive(Serialize)]
+pub struct PublicConfig {
+    pub redirect_to_first_oauth_provider: bool,
+    pub oauth_providers: HashMap<String, PublicOAuthProvider>,
+}
+
+impl From<&Config> for PublicConfig {
+    fn from(value: &Config) -> Self {
+        PublicConfig {
+            redirect_to_first_oauth_provider: value.redirect_to_first_oauth_provider,
+            oauth_providers: value
+                .oauth_providers
+                .iter()
+                .map(|(k, v)| (k.to_owned(), PublicOAuthProvider::from(v)))
+                .collect(),
+        }
+    }
+}
+
+#[typeshare]
+#[derive(Serialize)]
+pub struct PublicOAuthProvider {
+    pub issuer_url: String,
+}
+
+impl From<&OAuthProvider> for PublicOAuthProvider {
+    fn from(value: &OAuthProvider) -> Self {
+        PublicOAuthProvider {
+            issuer_url: value.issuer_url.to_owned(),
+        }
+    }
+}
+
+#[axum_macros::debug_handler(state = AppState)]
+pub async fn get_config(State(config): State<Arc<RwLock<Config>>>) -> Json<PublicConfig> {
+    Json(PublicConfig::from(&*config.read().await))
 }

@@ -1,12 +1,11 @@
 use chrono::NaiveDateTime;
 use diesel::{data_types::PgInterval, *};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use typeshare::typeshare;
 
 use crate::schema::*;
 
-#[typeshare]
-#[derive(Debug, PartialEq, Eq, Queryable, Identifiable, Selectable, Serialize)]
+#[derive(Debug, PartialEq, Eq, Queryable, Identifiable, Selectable)]
 pub struct User {
     pub id: i32,
     pub email: String,
@@ -16,7 +15,7 @@ pub struct User {
     pub bio: Option<String>,
     pub profile_image: Option<String>,
     pub joined_on: NaiveDateTime,
-    pub updated_on: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
     pub last_login: Option<NaiveDateTime>,
 }
 
@@ -31,8 +30,11 @@ pub struct NewUser<'a> {
     pub profile_image: Option<&'a str>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Queryable, Selectable, Associations)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, Deserialize, Queryable, Identifiable, Selectable, Associations,
+)]
 #[diesel(belongs_to(User))]
+#[diesel(primary_key(user_id))]
 pub struct LocalLogin {
     pub user_id: i32,
     pub hash: String,
@@ -172,3 +174,13 @@ pub struct NewLocation<'a> {
 //     pub id: i32,
 //     pub ...
 // }
+
+#[derive(Debug, PartialEq, Eq, Queryable, Identifiable, Associations)]
+#[diesel(belongs_to(User), table_name = oauth_logins, primary_key(user_id, provider, associated_email))]
+pub struct OAuthLogin {
+    pub user_id: i32,
+    pub provider: String,
+    pub associated_email: String,
+    pub providers_calendar: bool,
+    pub updated_at: NaiveDateTime,
+}

@@ -1,3 +1,4 @@
+use axum::routing::get;
 use axum::{Router, Server};
 use axum_macros::FromRef;
 use config::Config;
@@ -12,6 +13,8 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
+
+use crate::config::get_config;
 
 mod config;
 mod model;
@@ -76,6 +79,7 @@ pub async fn main() {
     // Build routes
     let app = Router::new()
         .nest("/user", user::router())
+        .route("/config", get(get_config))
         .with_state(state);
 
     info!("Listening on {:?}", addr);

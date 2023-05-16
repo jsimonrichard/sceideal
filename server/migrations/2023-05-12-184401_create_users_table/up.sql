@@ -12,7 +12,7 @@ CREATE TABLE users (
 
     -- Time stuff
     joined_on TIMESTAMP NOT NULL DEFAULT current_timestamp,
-    updated_on TIMESTAMP NOT NULL DEFAULT current_timestamp,
+    updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
     last_login TIMESTAMP
 );
 

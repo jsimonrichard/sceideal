@@ -12,15 +12,17 @@ use axum_extra::extract::CookieJar;
 use chrono::NaiveDateTime;
 use cookie::Cookie;
 use cookie::{time::Duration as CookieDuration, SameSite};
-use diesel::*;
-use diesel::{insert_into, result::DatabaseErrorKind, Insertable, Queryable};
+use diesel::{connection::DefaultLoadingMode, *};
 use rand::{distributions::Alphanumeric, rngs::StdRng, Rng};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use thiserror::Error;
 use tracing::trace;
 use typeshare::typeshare;
 
-use crate::{model::User, schema::users, AppState, PgConn, SessionStore};
+use crate::{
+    model::{LocalLogin, OAuthLogin, User},
+    AppState, PgConn, PgPool, SessionStore,
+};
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -166,15 +168,93 @@ impl IntoResponse for UserError {
     }
 }
 
-impl IntoResponse for User {
-    fn into_response(self) -> axum::response::Response {
-        Json(self).into_response()
+#[typeshare]
+#[derive(Serialize)]
+pub struct UserData {
+    pub email: String,
+    pub phone_number: Option<String>,
+    pub fname: String,
+    pub lname: String,
+    pub bio: Option<String>,
+    pub profile_image: Option<String>,
+    #[typeshare(serialized_as = "String")]
+    pub joined_on: NaiveDateTime,
+    #[typeshare(serialized_as = "String")]
+    pub updated_at: NaiveDateTime,
+    #[typeshare(serialized_as = "Option<String>")]
+    pub last_login: Option<NaiveDateTime>,
+    pub local_login: Option<LocalLoginData>,
+    pub oauth_providers: Vec<OAuthLoginData>,
+}
+
+#[typeshare]
+#[derive(Serialize)]
+pub struct LocalLoginData {
+    #[typeshare(serialized_as = "String")]
+    updated_at: NaiveDateTime,
+}
+
+impl From<LocalLogin> for LocalLoginData {
+    fn from(value: LocalLogin) -> Self {
+        LocalLoginData {
+            updated_at: value.updated_at,
+        }
+    }
+}
+
+#[typeshare]
+#[derive(Serialize)]
+pub struct OAuthLoginData {
+    pub provider: String,
+    pub associated_email: String,
+    pub provides_calendar: bool,
+    #[typeshare(serialized_as = "String")]
+    pub updated_at: NaiveDateTime,
+}
+
+impl From<OAuthLogin> for OAuthLoginData {
+    fn from(value: OAuthLogin) -> Self {
+        OAuthLoginData {
+            provider: value.provider,
+            associated_email: value.associated_email,
+            provides_calendar: value.providers_calendar,
+            updated_at: value.updated_at,
+        }
     }
 }
 
 #[axum_macros::debug_handler(state = AppState)]
-async fn get_user(UserFromParts { user, jar }: UserFromParts) -> (CookieJar, User) {
-    (jar, user)
+async fn get_user(
+    UserFromParts { user, jar }: UserFromParts,
+    State(pool): State<PgPool>,
+) -> Result<(CookieJar, Json<UserData>), StatusCode> {
+    let mut conn = pool.get().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let local_login_opt: Option<LocalLoginData> = LocalLogin::belonging_to(&user)
+        .first::<LocalLogin>(&mut conn)
+        .optional()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map(|l| l.into());
+    let oauth_login_list = OAuthLogin::belonging_to(&user)
+        .load_iter::<OAuthLogin, DefaultLoadingMode>(&mut conn)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .filter_map(|r| r.map(|l| l.into()).ok())
+        .collect();
+    let user_data = UserData {
+        email: user.email,
+        phone_number: user.phone_number,
+        fname: user.fname,
+        lname: user.lname,
+        bio: user.bio,
+        profile_image: user.profile_image,
+        joined_on: user.joined_on,
+        updated_at: user.updated_at,
+        last_login: user.last_login,
+        local_login: local_login_opt,
+        oauth_providers: oauth_login_list,
+    };
+
+    Ok((jar, Json(user_data)))
 }
 
 const SESSION_COOKIE_NAME: &str = "sid";

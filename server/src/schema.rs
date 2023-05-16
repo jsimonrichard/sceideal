@@ -83,9 +83,10 @@ diesel::table! {
 }
 
 diesel::table! {
-    openid_logins (user_id, provider) {
+    oauth_logins (user_id, provider, associated_email) {
         user_id -> Int4,
         provider -> Text,
+        associated_email -> Text,
         provides_calendar -> Bool,
         updated_at -> Timestamp,
     }
@@ -123,7 +124,7 @@ diesel::table! {
         bio -> Nullable<Text>,
         profile_image -> Nullable<Text>,
         joined_on -> Timestamp,
-        updated_on -> Timestamp,
+        updated_at -> Timestamp,
         last_login -> Nullable<Timestamp>,
     }
 }
@@ -134,7 +135,7 @@ diesel::joinable!(group_memberships -> groups (group_id));
 diesel::joinable!(group_memberships -> users (user_id));
 diesel::joinable!(local_logins -> users (user_id));
 diesel::joinable!(locations -> users (user_id));
-diesel::joinable!(openid_logins -> users (user_id));
+diesel::joinable!(oauth_logins -> users (user_id));
 diesel::joinable!(topics -> users (user_id));
 diesel::joinable!(uploads -> appointments (appointment_id));
 
@@ -146,7 +147,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     local_logins,
     locations,
     non_users,
-    openid_logins,
+    oauth_logins,
     topics,
     uploads,
     users,
