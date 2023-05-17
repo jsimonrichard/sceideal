@@ -83,11 +83,10 @@ diesel::table! {
 }
 
 diesel::table! {
-    oauth_logins (user_id, provider, associated_email) {
+    oauth_logins (provider, associated_email) {
         user_id -> Int4,
         provider -> Text,
         associated_email -> Text,
-        provides_calendar -> Bool,
         updated_at -> Timestamp,
     }
 }

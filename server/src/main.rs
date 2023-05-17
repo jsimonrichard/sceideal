@@ -1,18 +1,19 @@
+use std::sync::Arc;
+
 use axum::routing::get;
 use axum::{Router, Server};
 use axum_macros::FromRef;
-use config::Config;
-use diesel::pg::PgConnection;
-use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
+use config::{Config, StatefulConfig};
+use diesel::Connection;
+use diesel_async::pooled_connection::bb8::{Pool, PooledConnection};
+use diesel_async::pooled_connection::AsyncDieselConnectionManager;
+use diesel_async::AsyncPgConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
-use rand::rngs::StdRng;
-use rand::SeedableRng;
 use retainer::Cache;
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::RwLock;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
+use user::oauth::{CsrfNonceCache, OAuthClients};
+use user::session::SessionStore;
 
 use crate::config::get_config;
 
@@ -21,18 +22,18 @@ mod model;
 mod schema;
 mod user;
 
-pub type PgPool = Pool<ConnectionManager<PgConnection>>;
-pub type PgConn = PooledConnection<ConnectionManager<PgConnection>>;
-pub type SessionStore = Arc<Cache<String, i32>>;
+pub type PgPool = Pool<AsyncPgConnection>;
+pub type PgConn<'a> = PooledConnection<'a, AsyncPgConnection>;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 #[derive(Clone, FromRef)]
 pub struct AppState {
     pool: PgPool,
-    session_store: Arc<Cache<String, i32>>,
-    rng: StdRng,
-    config: Arc<RwLock<Config>>,
+    session_store: SessionStore,
+    config: StatefulConfig,
+    oauth_clients: OAuthClients,
+    cn_cache: CsrfNonceCache,
 }
 
 #[tokio::main]
@@ -48,32 +49,38 @@ pub async fn main() {
     // Load Config
     let config = Config::setup().await.expect("Could not load config");
 
-    // Connect to database and create pool
-    let manager = ConnectionManager::<PgConnection>::new(&config.read().await.database_url);
-    let pool = Pool::new(manager).expect("could not create database connection pool");
-
-    // Run pending migrations
+    // Run pending migrations synchronously (async not supported)
     {
-        let mut conn = pool
-            .get()
-            .expect("Couldn't retrieve a database connection from the pool");
+        let mut conn = diesel::pg::PgConnection::establish(&config.read().await.database_url)
+            .expect("could not get synchronous database connection");
         conn.run_pending_migrations(MIGRATIONS).unwrap();
     } // drop connection
 
-    // Create session store
-    let session_store: Arc<Cache<String, i32>> = Arc::new(Cache::new());
-    // Remove sessions when they expire
-    let session_clone = session_store.clone();
-    let monitor =
-        tokio::spawn(async move { session_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
+    // Connect to database and create pool
+    let manager =
+        AsyncDieselConnectionManager::<AsyncPgConnection>::new(&config.read().await.database_url);
+    let pool = Pool::builder()
+        .build(manager)
+        .await
+        .expect("could not create database connection pool");
 
-    // App state
+    // Create session store
+    let session_store = SessionStore::new();
+    let session_monitor = session_store.spawn_monitor_thread();
+
+    // Create csrf-nonce cache
+    let cn_cache = CsrfNonceCache::new();
+    let cn_monitor = cn_cache.spawn_monitor_thread();
+
+    // App state and other things
     let addr = config.read().await.bind_address;
+    let oauth_clients = OAuthClients::from_config(&*config.read().await).await;
     let state = AppState {
         pool,
         session_store,
-        rng: StdRng::from_entropy(),
         config,
+        oauth_clients,
+        cn_cache,
     };
 
     // Build routes
@@ -89,5 +96,6 @@ pub async fn main() {
         .unwrap();
 
     // Probably not going to run
-    monitor.abort();
+    session_monitor.abort();
+    cn_monitor.abort();
 }

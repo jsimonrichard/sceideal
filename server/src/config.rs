@@ -21,6 +21,10 @@ use crate::AppState;
 pub struct Config {
     pub database_url: String,
     pub bind_address: SocketAddr,
+    /// For OAuth redirects; should include http/https schema
+    pub base_url: String,
+    #[serde(default)]
+    pub allow_signups: bool,
     #[serde(default)]
     pub redirect_to_first_oauth_provider: bool,
     pub oauth_providers: HashMap<String, OAuthProvider>,
@@ -30,13 +34,15 @@ pub struct Config {
 #[derive(Deserialize)]
 pub struct OAuthProvider {
     pub client_id: String,
-    pub client_secret: String,
+    pub client_secret: Option<String>,
     pub issuer_url: String,
 }
 
+pub type StatefulConfig = Arc<RwLock<Config>>;
+
 impl Config {
     pub async fn setup() -> Result<Arc<RwLock<Self>>> {
-        let config_path = std::env::var("CONFIG_PATH")
+        let config_path = std::env::var("CONFIG_FILE")
             .ok()
             .map(PathBuf::from)
             .or(dirs::config_local_dir().map(|mut p| {
@@ -99,7 +105,7 @@ impl Config {
 #[derive(Serialize)]
 pub struct PublicConfig {
     pub redirect_to_first_oauth_provider: bool,
-    pub oauth_providers: HashMap<String, PublicOAuthProvider>,
+    pub oauth_providers: Vec<String>,
 }
 
 impl From<&Config> for PublicConfig {
@@ -108,23 +114,10 @@ impl From<&Config> for PublicConfig {
             redirect_to_first_oauth_provider: value.redirect_to_first_oauth_provider,
             oauth_providers: value
                 .oauth_providers
-                .iter()
-                .map(|(k, v)| (k.to_owned(), PublicOAuthProvider::from(v)))
+                .keys()
+                .into_iter()
+                .map(String::to_owned)
                 .collect(),
-        }
-    }
-}
-
-#[typeshare]
-#[derive(Serialize)]
-pub struct PublicOAuthProvider {
-    pub issuer_url: String,
-}
-
-impl From<&OAuthProvider> for PublicOAuthProvider {
-    fn from(value: &OAuthProvider) -> Self {
-        PublicOAuthProvider {
-            issuer_url: value.issuer_url.to_owned(),
         }
     }
 }

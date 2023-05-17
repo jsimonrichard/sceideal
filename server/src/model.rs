@@ -1,7 +1,6 @@
 use chrono::NaiveDateTime;
 use diesel::{data_types::PgInterval, *};
 use serde::Deserialize;
-use typeshare::typeshare;
 
 use crate::schema::*;
 
@@ -176,11 +175,18 @@ pub struct NewLocation<'a> {
 // }
 
 #[derive(Debug, PartialEq, Eq, Queryable, Identifiable, Associations)]
-#[diesel(belongs_to(User), table_name = oauth_logins, primary_key(user_id, provider, associated_email))]
+#[diesel(belongs_to(User), table_name = oauth_logins, primary_key(provider, associated_email))]
 pub struct OAuthLogin {
     pub user_id: i32,
     pub provider: String,
     pub associated_email: String,
-    pub providers_calendar: bool,
     pub updated_at: NaiveDateTime,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = oauth_logins)]
+pub struct NewOAuthLogin<'a> {
+    pub user_id: i32,
+    pub provider: &'a str,
+    pub associated_email: &'a str,
 }
