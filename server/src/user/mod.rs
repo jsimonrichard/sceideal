@@ -16,6 +16,7 @@ use diesel_async::{
     RunQueryDsl, UpdateAndFetchResults,
 };
 use futures::TryStreamExt;
+use openidconnect::{url::Url, LogoutRequest, RedirectUrl};
 use serde::Serialize;
 use thiserror::Error;
 use tracing::trace;
@@ -26,11 +27,15 @@ pub mod oauth;
 pub mod session;
 
 use crate::{
+    config::StatefulConfig,
     model::{LocalLogin, OAuthLogin, User},
     AppState, PgConn, PgPool, SessionStore,
 };
 
-use self::session::{SESSION_COOKIE_NAME, SESSION_TTL};
+use self::{
+    oauth::OAuthClients,
+    session::{SESSION_COOKIE_NAME, SESSION_TTL},
+};
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -255,6 +260,26 @@ async fn get_user(
 }
 
 #[axum_macros::debug_handler(state = AppState)]
-async fn logout(State(session): State<SessionStore>, jar: CookieJar) -> CookieJar {
-    session.remove(jar).await
+async fn logout(
+    State(session): State<SessionStore>,
+    State(oauth_clients): State<OAuthClients>,
+    State(config): State<StatefulConfig>,
+    jar: CookieJar,
+) -> (CookieJar, Json<Option<Url>>) {
+    let (session_data, jar) = session.remove(jar).await;
+
+    let mut logout_url = None;
+    if let Some(record) = session_data.and_then(|data| data.oauth_records.into_iter().next()) {
+        if let Some(client_record) = oauth_clients.get(&record.provider).await {
+            if let Ok(redirect_url) = RedirectUrl::new(config.read().await.base_url.clone()) {
+                logout_url = Some(
+                    LogoutRequest::from(client_record.end_session_endpoint.clone())
+                        .set_redirect_uri(redirect_url)
+                        .url(),
+                );
+            }
+        }
+    }
+
+    (jar, Json(logout_url))
 }

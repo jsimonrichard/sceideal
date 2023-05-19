@@ -10,18 +10,6 @@ use tokio::task::JoinHandle;
 pub const SESSION_COOKIE_NAME: &str = "sid";
 pub const SESSION_TTL: u64 = 3600 * 5; // 5 hrs in seconds
 
-// pub type TokenResponse = StandardTokenResponse<
-//     IdTokenFields<
-//         EmptyAdditionalClaims,
-//         EmptyExtraTokenFields,
-//         CoreGenderClaim,
-//         CoreJweContentEncryptionAlgorithm,
-//         CoreJwsSigningAlgorithm,
-//         CoreJsonWebKeyType,
-//     >,
-//     BasicTokenType,
-// >;
-
 pub struct OAuthRecord {
     pub provider: String,
     pub token_response: CoreTokenResponse,
@@ -120,11 +108,14 @@ impl SessionStore {
         jar
     }
 
-    pub async fn remove(&self, jar: CookieJar) -> CookieJar {
+    pub async fn remove(&self, mut jar: CookieJar) -> (Option<SessionData>, CookieJar) {
+        let mut session_data = None;
         if let Some(cookie) = jar.get(SESSION_COOKIE_NAME) {
-            self.0.remove(&cookie.value().to_string()).await;
+            session_data = self.0.remove(&cookie.value().to_string()).await;
         }
-        jar.remove(Cookie::named(SESSION_COOKIE_NAME))
+
+        jar = jar.remove(Cookie::named(SESSION_COOKIE_NAME));
+        (session_data, jar)
     }
 
     pub async fn update(&self, jar: &CookieJar, oauth_record: OAuthRecord) {

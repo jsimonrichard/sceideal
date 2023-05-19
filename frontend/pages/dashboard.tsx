@@ -1,4 +1,6 @@
 import { AsyncStatus, useAuth } from "@/components/hooks";
+import { faCirclePlus, faPlus } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import classNames from "classnames";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
@@ -11,12 +13,44 @@ function Calendar() {
   return <div></div>;
 }
 
-function AppointmentSettings() {
-  return <div></div>;
+function AppointmentTypes() {
+  return (
+    <div>
+      <h1 className="title is-2">Appointment Types</h1>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 300px))",
+          columnGap: 10,
+          rowGap: 10,
+        }}
+      >
+        <div className="block-cell">
+          <span>
+            Zoom <br />
+            <a>asdfasdfasdf</a>
+          </span>
+        </div>
+        <div className="block-cell">
+          <span>
+            Discord <br />
+            <a>asdfasdfasdf</a>
+          </span>
+        </div>
+        <div className="block-cell" style={{ fontSize: "2rem" }}>
+          <FontAwesomeIcon icon={faPlus} />
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function Profile() {
-  return <div></div>;
+function Locations() {
+  return (
+    <div>
+      <h1 className="title is-2">Meeting Locations</h1>
+    </div>
+  );
 }
 
 function Account() {
@@ -29,8 +63,8 @@ enum GeneralPanels {
 }
 
 enum SettingsPanels {
-  AppointmentSettings = "Appointment Settings",
-  Profile = "Profile",
+  AppointmentTypes = "Appointment Types",
+  Locations = "Locations",
   Account = "Account",
 }
 
@@ -39,26 +73,29 @@ type PanelName = GeneralPanels | SettingsPanels;
 const panels: { [key in PanelName]: () => JSX.Element } = {
   [GeneralPanels.Overview]: Overview,
   [GeneralPanels.Calendar]: Calendar,
-  [SettingsPanels.AppointmentSettings]: AppointmentSettings,
-  [SettingsPanels.Profile]: Profile,
+  [SettingsPanels.AppointmentTypes]: AppointmentTypes,
+  [SettingsPanels.Locations]: Locations,
   [SettingsPanels.Account]: Account,
 };
 
+const URL_UPDATE_DELAY = 100;
+
 function Dashboard() {
   const router = useRouter();
-  const { user, initialLoadStatus } = useAuth();
-  useEffect(() => {
-    if (!user && initialLoadStatus == AsyncStatus.Error) {
-      router.push("/login");
-    }
-  }, []);
+  const { user, initialLoadStatus } = useAuth(true);
 
   const [activePanelName, setActivePanelName] = useState<PanelName>(
     GeneralPanels.Overview
   );
   useEffect(() => {
-    router.push({ hash: activePanelName }, undefined, { shallow: true });
-  }, [activePanelName, router.asPath]);
+    const timeout = setTimeout(() => {
+      router.push({ hash: activePanelName }, undefined, { shallow: true });
+    }, URL_UPDATE_DELAY);
+
+    return function cleanUp() {
+      clearTimeout(timeout);
+    };
+  }, [activePanelName]);
 
   // Get panel from url if possible
   const [isLoadingInitPanel, setIsLoadingInitPanel] = useState(true);
@@ -94,7 +131,7 @@ function Dashboard() {
 
   return (
     <div className="has-navbar-fixed-top columns" style={{ marginTop: "5rem" }}>
-      <aside className="menu column is-one-third is-one-quarter-widescreen is-one-fifth-fullhd p-4">
+      <aside className="menu column is-narrow p-4">
         <p className="menu-label">General</p>
         <ul className="menu-list">
           {Object.values(GeneralPanels).map(renderPanelButton)}

@@ -7,12 +7,13 @@ use std::{
 
 use axum::{extract::State, Json};
 use color_eyre::{eyre::eyre, Result};
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{recommended_watcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use tokio::{
     runtime::Handle,
     sync::{mpsc::channel, RwLock},
 };
+use tracing::{debug, error};
 use typeshare::typeshare;
 
 use crate::AppState;
@@ -45,52 +46,54 @@ impl Config {
         let config_path = std::env::var("CONFIG_FILE")
             .ok()
             .map(PathBuf::from)
-            .or(dirs::config_local_dir().map(|mut p| {
-                p.push("sceideal");
-                p.push("config.toml");
-                p
-            }))
+            .or_else(|| {
+                dirs::config_local_dir().map(|mut p| {
+                    p.push("sceideal");
+                    p.push("config.toml");
+                    p
+                })
+            })
             .ok_or(eyre!("Could not get config directory."))?;
 
         let config = Arc::new(RwLock::new(Self::load(&config_path).await?));
 
         // Live reload if appropriate
-        if config.read().await.live_reloading {
-            let (tx, mut rx) = channel(1);
-            let mut watcher = RecommendedWatcher::new(
-                move |res| {
-                    Handle::current().block_on(async {
-                        tx.send(res).await.unwrap();
-                    });
-                },
-                notify::Config::default(),
-            )?;
+        // if config.read().await.live_reloading {
+        //     let (tx, mut rx) = channel(1);
+        //     let mut watcher = recommended_watcher(move |res| {
+        //         debug!("File watcher event: {:?}", res);
+        //         Handle::current().block_on(async {
+        //             tx.send(res).await.unwrap();
+        //         });
+        //     })?;
 
-            watcher.watch(&config_path, RecursiveMode::NonRecursive)?;
+        //     watcher.watch(&config_path, RecursiveMode::NonRecursive)?;
 
-            let config = config.clone();
-            let config_path = config_path.clone();
-            tokio::spawn(async move {
-                while let Some(res) = rx.recv().await {
-                    let event = match res {
-                        Ok(event) => event,
-                        Err(e) => {
-                            eprintln!("Error watching config file: {:?}", e);
-                            continue;
-                        }
-                    };
+        //     let config = config.clone();
+        //     let config_path = config_path.clone();
+        //     tokio::spawn(async move {
+        //         debug!("Watching {:?}", config_path);
+        //         while let Some(res) = rx.recv().await {
+        //             let event = match res {
+        //                 Ok(event) => event,
+        //                 Err(e) => {
+        //                     error!("Error watching config file: {:?}", e);
+        //                     continue;
+        //                 }
+        //             };
 
-                    if event.kind.is_modify() {
-                        match Self::load(&config_path).await {
-                            Ok(new_config) => *config.write().await = new_config,
-                            Err(e) => {
-                                eprintln!("Error loading config file: {:?}", e);
-                            }
-                        }
-                    }
-                }
-            });
-        }
+        //             if event.kind.is_modify() {
+        //                 debug!("Config file changed!");
+        //                 match Self::load(&config_path).await {
+        //                     Ok(new_config) => *config.write().await = new_config,
+        //                     Err(e) => {
+        //                         error!("Error loading config file: {:?}", e);
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     });
+        // }
 
         Ok(config)
     }

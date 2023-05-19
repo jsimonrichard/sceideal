@@ -19,68 +19,65 @@ function Login() {
 
   return (
     <div className="p-2 center-vertically">
-      <div className="panel small-panel is-primary">
-        <p className="panel-heading">Login</p>
-        <div className="panel-block">
-          <form className="is-flex-grow-1" onSubmit={onSubmit}>
-            <div className="field">
-              <label className="label">Username or Email</label>
-              <div className="control">
-                <input
-                  {...register("name_query", {
-                    required: "This field is required",
-                  })}
-                  className="input"
-                  type="text"
-                  placeholder="johndoe@example.com"
-                  aria-invalid={errors.name_query ? "true" : "false"}
-                />
-              </div>
-              {errors.name_query && (
-                <p className="help is-danger">{errors.name_query.message}</p>
-              )}
+      <div className="box small-box">
+        <form className="is-flex-grow-1" onSubmit={onSubmit}>
+          <div className="field">
+            <label className="label">Email</label>
+            <div className="control">
+              <input
+                {...register("email", {
+                  required: "This field is required",
+                })}
+                className="input"
+                type="text"
+                placeholder="johndoe@example.com"
+                aria-invalid={errors.email ? "true" : "false"}
+              />
             </div>
-            <div className="field">
-              <label className="label">Password</label>
-              <div className="control">
-                <input
-                  {...register("password", {
-                    required: "This field is required",
-                  })}
-                  className="input"
-                  type="password"
-                  placeholder="Password"
-                  aria-invalid={errors.password ? "true" : "false"}
-                />
-              </div>
-              {errors.password && (
-                <p className="help is-danger">{errors.password.message}</p>
-              )}
+            {errors.email && (
+              <p className="help is-danger">{errors.email.message}</p>
+            )}
+          </div>
+          <div className="field">
+            <label className="label">Password</label>
+            <div className="control">
+              <input
+                {...register("password", {
+                  required: "This field is required",
+                })}
+                className="input"
+                type="password"
+                placeholder="Password"
+                aria-invalid={errors.password ? "true" : "false"}
+              />
             </div>
-            <div className="field is-grouped is-justify-content-end">
-              <div className="control">
-                <button
-                  className={classNames({
-                    button: true,
-                    "is-primary": true,
-                    "is-loading":
-                      status == AsyncStatus.Pending ||
-                      status == AsyncStatus.Success, // waiting for redirect
-                  })}
-                >
-                  Login
-                </button>
-              </div>
+            {errors.password && (
+              <p className="help is-danger">{errors.password.message}</p>
+            )}
+          </div>
+          <div className="field is-grouped is-justify-content-end">
+            <div className="control">
+              <button
+                className={classNames({
+                  button: true,
+                  "is-primary": true,
+                  "is-loading":
+                    status == AsyncStatus.Pending ||
+                    status == AsyncStatus.Success, // waiting for redirect
+                })}
+              >
+                Login
+              </button>
             </div>
-            <p className="has-text-danger">
-              {(error &&
-                isAxiosError(error) &&
-                typeof error.response?.data == "string" &&
-                error.response.data) ||
-                error?.message}
-            </p>
-          </form>
-        </div>
+          </div>
+          <p className="has-text-danger">
+            {(error &&
+              isAxiosError(error) &&
+              typeof error.response?.data == "string" &&
+              error.response.data) ||
+              error?.message}
+          </p>
+        </form>
       </div>
     </div>
   );

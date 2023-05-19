@@ -1,9 +1,9 @@
-use std::{collections::HashMap, ops::Deref, sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use axum::{
     extract::{Path, Query, State},
     http::{header, StatusCode},
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     routing::get,
     Router,
 };
@@ -16,11 +16,11 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata, CoreResponseType},
     reqwest::async_http_client,
-    AuthenticationFlow, AuthorizationCode, ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce,
-    RedirectUrl,
+    AuthenticationFlow, AuthorizationCode, ClientId, ClientSecret, CsrfToken, EndSessionUrl,
+    IssuerUrl, Nonce, ProviderMetadata, ProviderMetadataWithLogout, RedirectUrl,
 };
 use retainer::Cache;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::task::JoinHandle;
 use tracing::{trace, warn};
@@ -36,12 +36,17 @@ use crate::{
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/generate_url", get(get_oauth_url))
+        .route("/:provider/generate_url", get(get_oauth_url))
         .route("/:provider/callback", get(oauth_callback))
 }
 
 #[derive(Clone)]
-pub struct OAuthClients(Arc<HashMap<String, CoreClient>>);
+pub struct OAuthClients(Arc<HashMap<String, OAuthClientRecord>>);
+
+pub struct OAuthClientRecord {
+    pub client: CoreClient,
+    pub end_session_endpoint: EndSessionUrl,
+}
 
 impl OAuthClients {
     pub async fn from_config(config: &Config) -> Self {
@@ -58,10 +63,9 @@ impl OAuthClients {
                     return None;
                 };
 
-                trace!("Parsed issuer url: {:?}", issuer_url);
-
                 let provider_metadata =
-                    match CoreProviderMetadata::discover_async(issuer_url, async_http_client).await
+                    match ProviderMetadataWithLogout::discover_async(issuer_url, async_http_client)
+                        .await
                     {
                         Ok(metadata) => metadata,
                         Err(e) => {
@@ -81,23 +85,38 @@ impl OAuthClients {
                     }
                 };
 
+                let end_session_endpoint = if let Some(url) =
+                    &provider_metadata.additional_metadata().end_session_endpoint
+                {
+                    url.clone()
+                } else {
+                    warn!("Failed to discover the end session endpoint for {k}");
+                    return None;
+                };
+
                 let client =
                     CoreClient::from_provider_metadata(provider_metadata, client_id, client_secret)
                         .set_redirect_uri(redirect_url);
 
-                Some((k.clone(), client))
+                Some((
+                    k.clone(),
+                    OAuthClientRecord {
+                        client,
+                        end_session_endpoint,
+                    },
+                ))
             })
             .collect();
 
         OAuthClients(Arc::new(
             futures
                 .filter_map(|r| async { r })
-                .collect::<HashMap<String, CoreClient>>()
+                .collect::<HashMap<String, OAuthClientRecord>>()
                 .await,
         ))
     }
 
-    pub async fn get(&self, provider_: &str) -> Option<&CoreClient> {
+    pub async fn get(&self, provider_: &str) -> Option<&OAuthClientRecord> {
         self.0.get(provider_)
     }
 }
@@ -139,19 +158,20 @@ impl CsrfNonceCache {
     }
 }
 
-const NONCE_TIMEOUT: u64 = 900; // 15 minutes in seconds
+const NONCE_TIMEOUT: u64 = 3600; // 1 hour in seconds
 
 #[axum_macros::debug_handler(state = AppState)]
 async fn get_oauth_url(
     State(oauth_clients): State<OAuthClients>,
     State(cn_cache): State<CsrfNonceCache>,
-    provider_: String,
+    Path(provider_): Path<String>,
 ) -> Result<String, StatusCode> {
-    let client = oauth_clients
+    let client_record = oauth_clients
         .get(&provider_)
         .await
         .ok_or(StatusCode::UNPROCESSABLE_ENTITY)?;
-    let (authorize_url, csrf_state, nonce) = client
+    let (authorize_url, csrf_state, nonce) = client_record
+        .client
         .authorize_url(
             AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
             CsrfToken::new_random,
@@ -178,6 +198,14 @@ async fn get_oauth_url(
     Ok(authorize_url.to_string())
 }
 
+pub struct OAuthRedirect;
+
+impl IntoResponse for OAuthRedirect {
+    fn into_response(self) -> Response {
+        (StatusCode::FOUND, [(header::LOCATION, "/")]).into_response()
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum OAuthError {
     #[error("No provider by that name exists")]
@@ -199,16 +227,6 @@ pub enum OAuthError {
 }
 
 impl OAuthError {
-    fn get_status_code(&self) -> StatusCode {
-        match self {
-            OAuthError::MissingInformation | OAuthError::MissingProvider => {
-                StatusCode::UNPROCESSABLE_ENTITY
-            }
-            OAuthError::UserAlreadyExists | OAuthError::InvalidOAuthState => StatusCode::FORBIDDEN,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        }
-    }
-
     fn from_diesel_error(e: diesel::result::Error) -> Self {
         OAuthError::DatabaseError(e.to_string())
     }
@@ -218,18 +236,31 @@ impl OAuthError {
     }
 }
 
+#[typeshare]
+#[derive(Serialize)]
+pub struct OAuthErrorMessage {
+    error_msg: String,
+}
+
 impl IntoResponse for OAuthError {
     fn into_response(self) -> axum::response::Response {
         (
-            self.get_status_code(),
-            [(header::CONTENT_TYPE, "text/plain")],
-            self.to_string(),
+            StatusCode::FOUND,
+            [(
+                header::LOCATION,
+                format!(
+                    "/?{}",
+                    serde_urlencoded::to_string(OAuthErrorMessage {
+                        error_msg: self.to_string()
+                    })
+                    .unwrap_or_default()
+                ),
+            )],
         )
             .into_response()
     }
 }
 
-#[typeshare]
 #[derive(Deserialize)]
 pub struct CodeStatePair {
     code: AuthorizationCode,
@@ -246,10 +277,10 @@ async fn oauth_callback(
     mut jar: CookieJar,
     State(config): State<StatefulConfig>,
     State(session): State<SessionStore>,
-) -> Result<CookieJar, OAuthError> {
+) -> Result<(CookieJar, OAuthRedirect), OAuthError> {
     // Verify oauth
     let CodeStatePair { code, state } = pair;
-    let client = oauth_clients
+    let client_record = oauth_clients
         .get(&provider_)
         .await
         .ok_or(OAuthError::MissingProvider)?;
@@ -258,12 +289,13 @@ async fn oauth_callback(
         .remove(&CachableCsrfToken(state))
         .await
         .ok_or(OAuthError::InvalidOAuthState)?;
-    let token_response = client
+    let token_response = client_record
+        .client
         .exchange_code(code)
         .request_async(async_http_client)
         .await
         .map_err(|e| OAuthError::ProviderError(e.to_string()))?;
-    let id_token_verifier = client.id_token_verifier();
+    let id_token_verifier = client_record.client.id_token_verifier();
 
     let id_token_claims = token_response
         .extra_fields()
@@ -307,7 +339,7 @@ async fn oauth_callback(
             .await
             .map_err(OAuthError::from_diesel_error)?;
 
-        Ok(jar)
+        Ok((jar, OAuthRedirect))
     } else if let Some(oauth_login) = oauth_logins::dsl::oauth_logins
         .find((&provider_, &email))
         .get_result::<OAuthLogin>(conn)
@@ -336,7 +368,7 @@ async fn oauth_callback(
             )
             .await;
 
-        Ok(jar)
+        Ok((jar, OAuthRedirect))
     } else if config.read().await.allow_signups {
         // Sign up
 
@@ -403,7 +435,7 @@ async fn oauth_callback(
             )
             .await;
 
-        Ok(jar)
+        Ok((jar, OAuthRedirect))
     } else {
         Err(OAuthError::SignUpDisallowed)
     }

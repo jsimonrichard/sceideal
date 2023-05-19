@@ -21,10 +21,11 @@ dotenvy = "0.15.7"
 futures = "0.3.28"
 indexmap = "1.9.3"
 notify = { version = "5.1.0", default-features = false }
-openidconnect = { version = "3.0.0", features = ["reqwest"] }
+openidconnect = { git = "https://github.com/jsimonrichard/openidconnect-rs", features = ["reqwest"] }
 rand = { version = "0.8.5", features = ["min_const_gen", "std_rng"] }
 retainer = { git = "https://github.com/jsimonrichard/retainer.git" }
 serde = { version = "1.0.159", features = ["derive"] }
+serde_urlencoded = "0.7.1"
 thiserror = "1.0.40"
 tokio = { version = "1.26.0", features = ["full"] }
 toml = "0.7.3"

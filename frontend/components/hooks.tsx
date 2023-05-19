@@ -1,5 +1,4 @@
 import axios, { AxiosError, AxiosResponse } from "axios";
-import { redirect } from "next/dist/server/api-utils";
 import { useRouter } from "next/router";
 import React, {
   createContext,
@@ -8,7 +7,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { CreateUser, LoginData, UserData } from "../shared-types";
+import { CreateUser, LoginData, PublicConfig, UserData } from "../shared-types";
 
 export enum AsyncStatus {
   Idle,
@@ -18,16 +17,16 @@ export enum AsyncStatus {
 }
 
 // https://usehooks.com/useAsync/
-export const useAsync = <I, T, E>(
-  asyncFunction: (data?: I) => Promise<T>,
-  onSuccess?: (response: T) => void,
-  onFailure?: (error: E) => void,
+export const useAsync = <I, T>(
+  asyncFunction: (data?: I) => Promise<AxiosResponse<T>>,
+  onSuccess?: (response: AxiosResponse<T>) => void,
+  onFailure?: (error: Error | AxiosError) => void,
   immediate = false,
   data?: I
 ) => {
   const [status, setStatus] = useState(AsyncStatus.Idle);
   const [value, setValue] = useState<T | null>();
-  const [error, setError] = useState<E | null>();
+  const [error, setError] = useState<Error | AxiosError | null>();
 
   const execute = useCallback(
     (data?: I) => {
@@ -37,13 +36,13 @@ export const useAsync = <I, T, E>(
 
       return asyncFunction(data)
         .then((response) => {
-          setValue(response);
+          setValue(response.data);
           setStatus(AsyncStatus.Success);
           if (onSuccess) {
             onSuccess(response);
           }
         })
-        .catch((error: E) => {
+        .catch((error: Error | AxiosError) => {
           setError(error);
           setStatus(AsyncStatus.Error);
           if (onFailure) {
@@ -67,9 +66,20 @@ const AuthContext = createContext<ReturnType<typeof useProvideAuth>>(
   {} as ReturnType<typeof useProvideAuth>
 );
 
-export const useAuth = () => {
-  const router = useRouter();
+export const useAuth = (isProtected = false) => {
   const auth = useContext(AuthContext);
+
+  const router = useRouter();
+  useEffect(() => {
+    if (
+      isProtected &&
+      !auth.user &&
+      auth.initialLoadStatus == AsyncStatus.Error
+    ) {
+      router.push("/login");
+    }
+  }, []);
+
   return auth;
 };
 
@@ -82,11 +92,7 @@ function useProvideAuth() {
   const router = useRouter();
   const [user, setUser] = useState<UserData | null>();
 
-  const { status: initialLoadStatus } = useAsync<
-    null,
-    AxiosResponse<UserData>,
-    Error | AxiosError
-  >(
+  const { status: initialLoadStatus } = useAsync<null, UserData>(
     () => axios.get<UserData>("/api/user"),
     (response) => {
       setUser(response.data);
@@ -96,7 +102,7 @@ function useProvideAuth() {
   );
 
   const login = (redirectUrl?: string) =>
-    useAsync<LoginData, AxiosResponse<UserData>, Error | AxiosError>(
+    useAsync<LoginData, UserData>(
       (data?: LoginData) => axios.post<UserData>("/api/user/login", data),
       (response) => {
         setUser(response.data);
@@ -107,7 +113,7 @@ function useProvideAuth() {
     );
 
   const sign_up = (redirectUrl?: string) =>
-    useAsync<CreateUser, AxiosResponse<UserData>, Error | AxiosError>(
+    useAsync<CreateUser, UserData>(
       (data) => axios.post<UserData>("/api/user/login", data),
       (response) => {
         setUser(response.data);
@@ -117,16 +123,52 @@ function useProvideAuth() {
       }
     );
 
-  const logout = (redirectUrl?: string) =>
-    useAsync<CreateUser, null, Error | AxiosError>(
+  const logout = () =>
+    useAsync<CreateUser, string>(
       () => axios.post("/api/user/logout"),
-      () => {
+      (response) => {
         setUser(null);
-        if (redirectUrl) {
-          router.push(redirectUrl);
+        if (response.data && response.data.length > 0) {
+          router.push(response.data);
+        } else {
+          router.push("/");
         }
       }
     );
 
   return { user, login, sign_up, logout, initialLoadStatus };
+}
+
+export const useConfig = () => {
+  const ctx = useContext(ConfigContext);
+  return ctx;
+};
+
+const ConfigContext = createContext<ReturnType<typeof useProvideConfig>>(
+  {} as ReturnType<typeof useProvideConfig>
+);
+
+export function ProvideConfigContext({ children }: { children: JSX.Element }) {
+  const config = useProvideConfig();
+  return (
+    <ConfigContext.Provider value={config}>{children}</ConfigContext.Provider>
+  );
+}
+
+function useProvideConfig() {
+  const [config, setConfig] = useState<PublicConfig | null>();
+
+  const { status: initialLoadStatus } = useAsync<null, PublicConfig>(
+    () => axios.get<PublicConfig>("/api/config"),
+    (response) => {
+      setConfig(response.data);
+    },
+    () => {},
+    true // immediate evaluation
+  );
+
+  return {
+    config,
+    initialLoadStatus,
+  };
 }

@@ -1,31 +1,55 @@
 $primary: #003359;
-$background: #f8f8f8;
-$menu-item-hover-background-color: #ebebeb;
+$success: #6abe28;
+// $background-accent: #eceff1;
+$navbar-min-height: 5rem;
 
 @import "../node_modules/bulma/bulma.sass";
 
-html,
-body {
-  background-color: $background;
+.navbar {
+  min-height: $navbar-min-height;
 }
 
-.has-navbar-fixed-top {
-  padding-top: 4rem;
+html.has-navbar-fixed-top,
+body.has-navbar-fixed-top {
+  padding-top: $navbar-min-height;
 }
 
-.small-panel {
+.navbar-item,
+.navbar-link {
+  padding: 1rem 1.5rem;
+}
+
+.navbar-item.logo {
+  font-size: 1.8rem;
+  font-weight: bold;
+  &,
+  &:hover,
+  &:visited,
+  &:active,
+  &:focus {
+    color: black;
+  }
+
+  img {
+    max-height: 2.7rem !important;
+    width: 2.7rem;
+    margin-right: 1rem;
+  }
+}
+
+.navbar-burger {
+  height: unset;
+}
+
+.small-box {
   max-width: 650px;
   margin: auto;
 }
 
 .center-vertically {
-  min-height: 100vh;
+  min-height: calc(100vh - 2 * $navbar-min-height);
   display: flex;
   background-color: inherit;
-}
-
-.center-vertically > * {
-  background-color: $white;
 }
 
 .center-vertically > * {
@@ -33,6 +57,16 @@ body {
 }
 
 .navbar {
-  border-bottom: 1px solid $primary;
-  background-color: $background;
+  border-bottom: 1px solid rgba($primary, 0.15);
+}
+
+.block-cell {
+  background-color: white;
+  padding: 1.5rem;
+  box-shadow: 0 0.5em 1em -0.125em rgba(10, 10, 10, 0.1),
+    0 0px 0 1px rgba(10, 10, 10, 0.02);
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
