@@ -71,6 +71,9 @@ export const useAuth = (isProtected = false) => {
 
   const router = useRouter();
   useEffect(() => {
+    if (isProtected) {
+      console.log(auth.initialLoadStatus);
+    }
     if (
       isProtected &&
       !auth.user &&
@@ -78,7 +81,7 @@ export const useAuth = (isProtected = false) => {
     ) {
       router.push("/login");
     }
-  }, []);
+  }, [auth]);
 
   return auth;
 };

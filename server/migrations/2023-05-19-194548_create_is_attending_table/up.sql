@@ -2,6 +2,8 @@ CREATE TABLE is_attending (
     id SERIAL PRIMARY KEY,
 
     appointment_id UUID NOT NULL REFERENCES appointments,
+
+    notes TEXT,
     
     -- Client details
     user_id INT REFERENCES users,

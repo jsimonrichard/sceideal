@@ -9,7 +9,6 @@ use axum::{
 use axum_extra::extract::CookieJar;
 use chrono::NaiveDateTime;
 use color_eyre::Result;
-use cookie::Cookie;
 use diesel::prelude::*;
 use diesel_async::{
     pooled_connection::{bb8::RunError, PoolError},
@@ -19,7 +18,6 @@ use futures::TryStreamExt;
 use openidconnect::{url::Url, LogoutRequest, RedirectUrl};
 use serde::Serialize;
 use thiserror::Error;
-use tracing::trace;
 use typeshare::typeshare;
 
 mod local;
@@ -28,7 +26,7 @@ pub mod session;
 
 use crate::{
     config::StatefulConfig,
-    model::{LocalLogin, OAuthLogin, User},
+    model::{LocalLogin, OAuthLogin, PermissionLevel, User},
     AppState, PgConn, PgPool, SessionStore,
 };
 
@@ -99,11 +97,13 @@ impl User {
             .await?;
         Ok(UserData {
             email: self.email.clone(),
+            email_verified: self.email_verified,
             phone_number: self.phone_number.clone(),
             fname: self.fname.clone(),
             lname: self.lname.clone(),
             bio: self.bio.clone(),
             profile_image: self.profile_image.clone(),
+            permission_level: self.permission_level,
             joined_on: self.joined_on,
             updated_at: self.updated_at,
             last_login: self.last_login,
@@ -192,11 +192,13 @@ impl IntoResponse for UserError {
 #[derive(Serialize)]
 pub struct UserData {
     pub email: String,
+    pub email_verified: bool,
     pub phone_number: Option<String>,
     pub fname: String,
     pub lname: String,
     pub bio: Option<String>,
     pub profile_image: Option<String>,
+    pub permission_level: PermissionLevel,
     #[typeshare(serialized_as = "String")]
     pub joined_on: NaiveDateTime,
     #[typeshare(serialized_as = "String")]

@@ -1,11 +1,10 @@
 import { AsyncStatus, useAsync, useAuth, useConfig } from "./hooks";
-import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUser } from "@fortawesome/free-solid-svg-icons";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import classNames from "classnames";
-import axios, { AxiosError, AxiosResponse } from "axios";
+import axios from "axios";
 
 export function NavBar() {
   const { user, logout, initialLoadStatus: initialAuthLoadStatus } = useAuth();
@@ -26,12 +25,9 @@ export function NavBar() {
       initialConfigLoadStatus == AsyncStatus.Success ||
       (config && config.redirect_to_first_oauth_provider)
     ) {
-      console.log("Getting OAuth URL...");
       getOAuthUrl();
     }
   }, [initialAuthLoadStatus, initialConfigLoadStatus, config]);
-
-  console.log(oAuthUrl);
 
   return (
     <nav
@@ -94,8 +90,14 @@ export function NavBar() {
               if (user) {
                 return (
                   <>
-                    <Link href="/dashboard#Overview" className="navbar-item">
+                    <Link href="/dashboard" className="navbar-item">
                       Dashboard
+                    </Link>
+                    <Link href="/classes" className="navbar-item">
+                      Classes
+                    </Link>
+                    <Link href="/settings/profile" className="navbar-item">
+                      Settings
                     </Link>
                     <div className="navbar-item has-dropdown is-hoverable">
                       <a className="navbar-link">
@@ -110,7 +112,7 @@ export function NavBar() {
                       </a>
 
                       <div className="navbar-dropdown is-right">
-                        <Link className="navbar-item" href="/dashboard#Account">
+                        <Link className="navbar-item" href="/settings/account">
                           Account
                         </Link>
                         <hr className="navbar-divider" />

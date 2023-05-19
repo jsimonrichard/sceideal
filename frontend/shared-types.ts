@@ -20,6 +20,12 @@ export interface LoginData {
 	password: string;
 }
 
+export enum PermissionLevel {
+	Student = "Student",
+	Teacher = "Teacher",
+	Admin = "Admin",
+}
+
 export interface LocalLoginData {
 	updated_at: string;
 }
@@ -32,15 +38,21 @@ export interface OAuthLoginData {
 
 export interface UserData {
 	email: string;
+	email_verified: boolean;
 	phone_number?: string;
 	fname: string;
 	lname: string;
 	bio?: string;
 	profile_image?: string;
+	permission_level: PermissionLevel;
 	joined_on: string;
 	updated_at: string;
 	last_login?: string;
 	local_login?: LocalLoginData;
 	oauth_providers: OAuthLoginData[];
+}
+
+export interface OAuthErrorMessage {
+	error_msg: string;
 }
 

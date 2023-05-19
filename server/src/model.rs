@@ -1,11 +1,13 @@
 use chrono::NaiveDateTime;
 use diesel::{data_types::PgInterval, *};
 use diesel_derive_enum::DbEnum;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use typeshare::typeshare;
 
 use crate::schema::*;
 
-#[derive(Debug, PartialEq, Eq, DbEnum)]
+#[typeshare]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, DbEnum, Serialize)]
 #[ExistingTypePath = "crate::schema::sql_types::PermissionLevel"]
 pub enum PermissionLevel {
     Student,

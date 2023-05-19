@@ -61,6 +61,7 @@ diesel::table! {
     is_attending (id) {
         id -> Int4,
         appointment_id -> Uuid,
+        notes -> Nullable<Text>,
         user_id -> Nullable<Int4>,
         non_user_id -> Nullable<Int4>,
         canceled -> Bool,
