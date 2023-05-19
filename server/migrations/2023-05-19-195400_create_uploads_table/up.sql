@@ -1,6 +1,6 @@
 CREATE TABLE uploads (
     id SERIAL PRIMARY KEY,
-    appointment_id INT REFERENCES appointments,
+    is_attending_id INT REFERENCES is_attending,
 
     file_name TEXT NOT NULL,
 

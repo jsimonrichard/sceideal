@@ -1,0 +1,1 @@
+DROP TABLE provides_type CASCADE;

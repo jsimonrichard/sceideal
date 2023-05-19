@@ -1,27 +1,21 @@
 // @generated automatically by Diesel CLI.
 
-diesel::table! {
-    appointments (id) {
-        id -> Int4,
-        provider_id -> Int4,
-        time -> Timestamptz,
-        topic -> Text,
-        location_name -> Text,
-        duration -> Interval,
-        notes -> Nullable<Text>,
-        client_user_id -> Nullable<Int4>,
-        client_non_user_id -> Nullable<Int4>,
-        canceled -> Bool,
-        created_on -> Timestamp,
-        updated_at -> Timestamp,
-    }
+pub mod sql_types {
+    #[derive(diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "permission_level"))]
+    pub struct PermissionLevel;
 }
 
 diesel::table! {
-    durations (user_id, duration_time) {
-        user_id -> Int4,
+    appointment_types (id) {
+        id -> Int4,
+        name -> Text,
+        description -> Nullable<Text>,
+        requirements -> Nullable<Text>,
         public -> Bool,
-        duration_time -> Interval,
+        user_id -> Nullable<Int4>,
+        allow_multiple_students -> Bool,
+        duration -> Interval,
         lockout -> Interval,
         buffer -> Interval,
         created_on -> Timestamp,
@@ -30,24 +24,56 @@ diesel::table! {
 }
 
 diesel::table! {
-    group_memberships (user_id, group_id) {
+    appointments (id) {
+        id -> Uuid,
         user_id -> Int4,
-        group_id -> Int4,
-        joined_on -> Timestamp,
+        time -> Timestamptz,
+        topic_id -> Int4,
+        appointment_type_id -> Int4,
+        location_id -> Int4,
+        canceled -> Bool,
+        created_on -> Timestamp,
+        updated_at -> Timestamp,
     }
 }
 
 diesel::table! {
-    groups (id) {
+    can_teach_in (user_id, class_id) {
+        user_id -> Int4,
+        class_id -> Int4,
+        started_on -> Timestamp,
+    }
+}
+
+diesel::table! {
+    class (id) {
         id -> Int4,
         name -> Text,
-        is_mutable -> Bool,
-        can_sign_up_for_appointments -> Bool,
-        can_offer_appointments -> Bool,
-        can_access_bio -> Bool,
-        is_admin -> Bool,
+        instructor_email -> Nullable<Text>,
+        description -> Nullable<Text>,
+        public -> Bool,
         created_on -> Timestamp,
         updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    is_attending (id) {
+        id -> Int4,
+        appointment_id -> Uuid,
+        user_id -> Nullable<Int4>,
+        non_user_id -> Nullable<Int4>,
+        canceled -> Bool,
+        created_on -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    is_student_in (user_id, class_id) {
+        user_id -> Int4,
+        class_id -> Int4,
+        joined_on -> Timestamp,
     }
 }
 
@@ -60,13 +86,14 @@ diesel::table! {
 }
 
 diesel::table! {
-    locations (user_id, name) {
+    locations (id, user_id) {
+        id -> Int4,
         user_id -> Int4,
-        public -> Bool,
-        name -> Text,
-        description -> Nullable<Text>,
         #[sql_name = "type"]
         type_ -> Nullable<Text>,
+        name -> Text,
+        description -> Nullable<Text>,
+        requirements -> Nullable<Text>,
         created_on -> Timestamp,
         updated_at -> Timestamp,
     }
@@ -92,11 +119,26 @@ diesel::table! {
 }
 
 diesel::table! {
-    topics (user_id, name) {
+    provides_type (user_id, appointment_type_id) {
         user_id -> Int4,
-        public -> Bool,
+        appointment_type_id -> Int4,
+    }
+}
+
+diesel::table! {
+    teaches (user_id, topic_id) {
+        user_id -> Int4,
+        topic_id -> Int4,
+        since -> Timestamp,
+    }
+}
+
+diesel::table! {
+    topics (id) {
+        id -> Int4,
         name -> Text,
         description -> Nullable<Text>,
+        requirements -> Nullable<Text>,
         lockout -> Nullable<Interval>,
         created_on -> Timestamp,
         updated_at -> Timestamp,
@@ -106,7 +148,7 @@ diesel::table! {
 diesel::table! {
     uploads (id) {
         id -> Int4,
-        appointment_id -> Nullable<Int4>,
+        is_attending_id -> Nullable<Int4>,
         file_name -> Text,
         created_on -> Timestamp,
         updated_at -> Timestamp,
@@ -114,39 +156,58 @@ diesel::table! {
 }
 
 diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::PermissionLevel;
+
     users (id) {
         id -> Int4,
         email -> Text,
+        email_verified -> Bool,
         phone_number -> Nullable<Text>,
         fname -> Text,
         lname -> Text,
         bio -> Nullable<Text>,
         profile_image -> Nullable<Text>,
+        permission_level -> PermissionLevel,
         joined_on -> Timestamp,
         updated_at -> Timestamp,
         last_login -> Nullable<Timestamp>,
     }
 }
 
-diesel::joinable!(appointments -> non_users (client_non_user_id));
-diesel::joinable!(durations -> users (user_id));
-diesel::joinable!(group_memberships -> groups (group_id));
-diesel::joinable!(group_memberships -> users (user_id));
+diesel::joinable!(appointment_types -> users (user_id));
+diesel::joinable!(appointments -> appointment_types (appointment_type_id));
+diesel::joinable!(appointments -> topics (topic_id));
+diesel::joinable!(appointments -> users (user_id));
+diesel::joinable!(can_teach_in -> class (class_id));
+diesel::joinable!(can_teach_in -> users (user_id));
+diesel::joinable!(is_attending -> appointments (appointment_id));
+diesel::joinable!(is_attending -> non_users (non_user_id));
+diesel::joinable!(is_attending -> users (user_id));
+diesel::joinable!(is_student_in -> class (class_id));
+diesel::joinable!(is_student_in -> users (user_id));
 diesel::joinable!(local_logins -> users (user_id));
 diesel::joinable!(locations -> users (user_id));
 diesel::joinable!(oauth_logins -> users (user_id));
-diesel::joinable!(topics -> users (user_id));
-diesel::joinable!(uploads -> appointments (appointment_id));
+diesel::joinable!(provides_type -> appointment_types (appointment_type_id));
+diesel::joinable!(provides_type -> users (user_id));
+diesel::joinable!(teaches -> topics (topic_id));
+diesel::joinable!(teaches -> users (user_id));
+diesel::joinable!(uploads -> is_attending (is_attending_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    appointment_types,
     appointments,
-    durations,
-    group_memberships,
-    groups,
+    can_teach_in,
+    class,
+    is_attending,
+    is_student_in,
     local_logins,
     locations,
     non_users,
     oauth_logins,
+    provides_type,
+    teaches,
     topics,
     uploads,
     users,

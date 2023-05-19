@@ -1,0 +1,1 @@
+DROP TABLE is_attending CASCADE;

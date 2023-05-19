@@ -1,0 +1,1 @@
+DROP TABLE can_teach_in CASCADE;
