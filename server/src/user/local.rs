@@ -8,7 +8,7 @@ use diesel_async::RunQueryDsl;
 use serde::Deserialize;
 use typeshare::typeshare;
 
-use crate::model::NewLocalLogin;
+use crate::model::{NewLocalLogin, PermissionLevel};
 use crate::{
     model::{LocalLogin, NewUser, User},
     schema::{local_logins, users},
@@ -55,11 +55,13 @@ async fn sign_up(
     // Create the user
     let new_user_data = NewUser {
         email,
+        email_verified: false,
         phone_number: phone_number.as_ref().map(String::as_str),
         fname,
         lname,
         bio: None,
         profile_image: None,
+        permission_level: PermissionLevel::Student,
     };
 
     let id: i32 = insert_into(users::table)

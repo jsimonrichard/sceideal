@@ -14,10 +14,10 @@ use diesel_async::pooled_connection::bb8::RunError;
 use diesel_async::RunQueryDsl;
 use futures::{stream::FuturesUnordered, StreamExt};
 use openidconnect::{
-    core::{CoreClient, CoreProviderMetadata, CoreResponseType},
+    core::{CoreClient, CoreResponseType},
     reqwest::async_http_client,
     AuthenticationFlow, AuthorizationCode, ClientId, ClientSecret, CsrfToken, EndSessionUrl,
-    IssuerUrl, Nonce, ProviderMetadata, ProviderMetadataWithLogout, RedirectUrl,
+    IssuerUrl, Nonce, ProviderMetadataWithLogout, RedirectUrl,
 };
 use retainer::Cache;
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,7 @@ use typeshare::typeshare;
 
 use crate::{
     config::{Config, StatefulConfig},
-    model::{NewOAuthLogin, NewUser, OAuthLogin, User},
+    model::{NewOAuthLogin, NewUser, OAuthLogin, User, PermissionLevel},
     schema::{oauth_logins, users},
     user::session::{OAuthRecord, SessionData, SessionStore},
     AppState, PgPool,
@@ -375,6 +375,7 @@ async fn oauth_callback(
         // Create the user
         let new_user_data = NewUser {
             email: &email,
+            email_verified: id_token_claims.email_verified().unwrap_or_default(),
             phone_number: id_token_claims.phone_number().map(|p| p.as_str()),
             fname: id_token_claims
                 .given_name()
@@ -392,6 +393,7 @@ async fn oauth_callback(
                 .ok_or(OAuthError::MissingInformation)?,
             bio: None,
             profile_image: None,
+            permission_level: PermissionLevel::Student,
         };
 
         let id: i32 = insert_into(users::table)
