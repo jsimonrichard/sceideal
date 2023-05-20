@@ -7,6 +7,31 @@ export interface PublicConfig {
 	oauth_providers: string[];
 }
 
+export interface CreateLocation {
+	type_?: string;
+	name: string;
+	description?: string;
+	requirements?: string;
+}
+
+export interface Location {
+	id: number;
+	user_id: number;
+	type_?: string;
+	name: string;
+	description?: string;
+	requirements?: string;
+	created_on: string;
+	updated_at: string;
+}
+
+export interface UpdateLocation {
+	type_?: string;
+	name?: string;
+	description?: string;
+	requirements?: string;
+}
+
 export interface CreateUser {
 	email: string;
 	phone_number?: string;
