@@ -21,8 +21,8 @@ pub mod session;
 
 use crate::{
     config::StatefulConfig,
-    model::{LocalLogin, OAuthLogin, PermissionLevel, User},
     http_error::HttpError,
+    model::{LocalLogin, OAuthLogin, PermissionLevel, User},
     AppState, PgConn, PgPool, SessionStore,
 };
 
@@ -62,7 +62,7 @@ impl User {
         session: &SessionStore,
         connection: &mut PgConn<'_>,
     ) -> Result<Option<Self>, diesel::result::Error> {
-        let user_id_ = if let Some(session_data) = session.get(&jar).await {
+        let user_id_ = if let Some(session_data) = session.get(jar).await {
             session_data.user_id
         } else {
             return Ok(None);
@@ -107,8 +107,8 @@ impl User {
 }
 
 pub struct UserFromParts {
-    user: User,
-    jar: CookieJar,
+    pub user: User,
+    pub jar: CookieJar,
 }
 
 #[async_trait]
@@ -136,6 +136,44 @@ impl FromRequestParts<AppState> for UserFromParts {
         jar = state.session_store.reup(jar).await;
 
         Ok(UserFromParts { user, jar })
+    }
+}
+
+pub struct TeacherFromParts(pub UserFromParts);
+
+#[async_trait]
+impl FromRequestParts<AppState> for TeacherFromParts {
+    type Rejection = HttpError;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let user_from_parts = UserFromParts::from_request_parts(parts, state).await?;
+        match user_from_parts.user.permission_level {
+            PermissionLevel::Teacher | PermissionLevel::Admin => {
+                Ok(TeacherFromParts(user_from_parts))
+            }
+            _ => Err(HttpError::forbidden("insufficient permissions")),
+        }
+    }
+}
+
+pub struct AdminFromParts(pub UserFromParts);
+
+#[async_trait]
+impl FromRequestParts<AppState> for AdminFromParts {
+    type Rejection = HttpError;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let user_from_parts = UserFromParts::from_request_parts(parts, state).await?;
+        match user_from_parts.user.permission_level {
+            PermissionLevel::Admin => Ok(AdminFromParts(user_from_parts)),
+            _ => Err(HttpError::forbidden("insufficient permissions")),
+        }
     }
 }
 
