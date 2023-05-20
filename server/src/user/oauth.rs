@@ -14,10 +14,10 @@ use diesel_async::pooled_connection::bb8::RunError;
 use diesel_async::RunQueryDsl;
 use futures::{stream::FuturesUnordered, StreamExt};
 use openidconnect::{
-    core::{CoreClient, CoreResponseType},
+    core::{CoreClient, CoreRequestTokenError, CoreResponseType},
     reqwest::async_http_client,
-    AuthenticationFlow, AuthorizationCode, ClientId, ClientSecret, CsrfToken, EndSessionUrl,
-    IssuerUrl, Nonce, ProviderMetadataWithLogout, RedirectUrl,
+    AuthenticationFlow, AuthorizationCode, ClaimsVerificationError, ClientId, ClientSecret,
+    CsrfToken, EndSessionUrl, IssuerUrl, Nonce, ProviderMetadataWithLogout, RedirectUrl,
 };
 use retainer::Cache;
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,7 @@ use typeshare::typeshare;
 
 use crate::{
     config::{Config, StatefulConfig},
-    model::{NewOAuthLogin, NewUser, OAuthLogin, User, PermissionLevel},
+    model::{NewOAuthLogin, NewUser, OAuthLogin, PermissionLevel, User},
     schema::{oauth_logins, users},
     user::session::{OAuthRecord, SessionData, SessionStore},
     AppState, PgPool,
@@ -226,13 +226,27 @@ pub enum OAuthError {
     SignUpDisallowed,
 }
 
-impl OAuthError {
-    fn from_diesel_error(e: diesel::result::Error) -> Self {
-        OAuthError::DatabaseError(e.to_string())
+impl From<diesel::result::Error> for OAuthError {
+    fn from(value: diesel::result::Error) -> Self {
+        OAuthError::DatabaseError(value.to_string())
     }
+}
 
-    fn from_pool_error(e: RunError) -> Self {
-        OAuthError::PoolError(e.to_string())
+impl From<RunError> for OAuthError {
+    fn from(value: RunError) -> Self {
+        OAuthError::PoolError(value.to_string())
+    }
+}
+
+impl<RE: std::error::Error> From<CoreRequestTokenError<RE>> for OAuthError {
+    fn from(value: CoreRequestTokenError<RE>) -> Self {
+        OAuthError::ProviderError(value.to_string())
+    }
+}
+
+impl From<ClaimsVerificationError> for OAuthError {
+    fn from(value: ClaimsVerificationError) -> Self {
+        OAuthError::ProviderError(value.to_string())
     }
 }
 
@@ -293,16 +307,14 @@ async fn oauth_callback(
         .client
         .exchange_code(code)
         .request_async(async_http_client)
-        .await
-        .map_err(|e| OAuthError::ProviderError(e.to_string()))?;
+        .await?;
     let id_token_verifier = client_record.client.id_token_verifier();
 
     let id_token_claims = token_response
         .extra_fields()
         .id_token()
         .expect("Server did not return an ID token")
-        .claims(&id_token_verifier, &nonce)
-        .map_err(|e| OAuthError::ProviderError(e.to_string()))?;
+        .claims(&id_token_verifier, &nonce)?;
 
     let email = id_token_claims
         .email()
@@ -310,11 +322,8 @@ async fn oauth_callback(
         .to_string();
 
     // Get the current user if one is present
-    let conn = &mut pool.get().await.map_err(OAuthError::from_pool_error)?;
-    if let Some(user) = User::from_jar(&jar, &session, conn)
-        .await
-        .map_err(OAuthError::from_diesel_error)?
-    {
+    let conn = &mut pool.get().await?;
+    if let Some(user) = User::from_jar(&jar, &session, conn).await? {
         // Add this provider to the session
         session
             .update(
@@ -336,23 +345,20 @@ async fn oauth_callback(
         insert_into(oauth_logins::table)
             .values(new_oauth_login)
             .execute(conn)
-            .await
-            .map_err(OAuthError::from_diesel_error)?;
+            .await?;
 
         Ok((jar, OAuthRedirect))
     } else if let Some(oauth_login) = oauth_logins::dsl::oauth_logins
         .find((&provider_, &email))
         .get_result::<OAuthLogin>(conn)
         .await
-        .optional()
-        .map_err(OAuthError::from_diesel_error)?
+        .optional()?
     {
         // Otherwise try to sign in
         let user: User = users::dsl::users
             .find(oauth_login.user_id)
             .get_result(conn)
-            .await
-            .map_err(OAuthError::from_diesel_error)?;
+            .await?;
 
         // Start session
         jar = session
@@ -407,7 +413,7 @@ async fn oauth_callback(
                 {
                     OAuthError::UserAlreadyExists
                 } else {
-                    OAuthError::from_diesel_error(e)
+                    e.into()
                 }
             })?;
 
@@ -420,8 +426,7 @@ async fn oauth_callback(
         insert_into(oauth_logins::table)
             .values(new_oauth_login)
             .execute(conn)
-            .await
-            .map_err(OAuthError::from_diesel_error)?;
+            .await?;
 
         // Start session
         jar = session
@@ -441,10 +446,4 @@ async fn oauth_callback(
     } else {
         Err(OAuthError::SignUpDisallowed)
     }
-    // let userinfo_claims: UserInfoClaims<EmptyAdditionalClaims, CoreGenderClaim> = client
-    //     .user_info(token_response.access_token().to_owned(), None)
-    //     .map_err(|_| StatusCode::FORBIDDEN)?
-    //     .request_async(async_http_client)
-    //     .await
-    //     .map_err(|_| StatusCode::FORBIDDEN)?;
 }

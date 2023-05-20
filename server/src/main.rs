@@ -3,13 +3,14 @@ use std::sync::Arc;
 use axum::routing::get;
 use axum::{Router, Server};
 use axum_macros::FromRef;
+use color_eyre::eyre::Context;
+use color_eyre::Result;
 use config::{Config, StatefulConfig};
 use diesel::Connection;
 use diesel_async::pooled_connection::bb8::{Pool, PooledConnection};
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use diesel_async::AsyncPgConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
-use retainer::Cache;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 use user::oauth::{CsrfNonceCache, OAuthClients};
@@ -18,6 +19,8 @@ use user::session::SessionStore;
 use crate::config::get_config;
 
 mod config;
+mod http_error;
+mod locations;
 mod model;
 mod schema;
 mod user;
@@ -37,22 +40,23 @@ pub struct AppState {
 }
 
 #[tokio::main]
-pub async fn main() {
-    dotenvy::dotenv().ok();
-
+pub async fn main() -> Result<()> {
     // Init tracing
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::TRACE)
         .finish();
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+    tracing::subscriber::set_global_default(subscriber)?;
+
+    dotenvy::dotenv().ok();
+    color_eyre::install()?;
 
     // Load Config
-    let config = Config::setup().await.expect("Could not load config");
+    let config = Config::setup().await?;
 
     // Run pending migrations synchronously (async not supported)
     {
         let mut conn = diesel::pg::PgConnection::establish(&config.read().await.database_url)
-            .expect("could not get synchronous database connection");
+            .wrap_err("could not get synchronous database connection")?;
         conn.run_pending_migrations(MIGRATIONS).unwrap();
     } // drop connection
 
@@ -62,7 +66,7 @@ pub async fn main() {
     let pool = Pool::builder()
         .build(manager)
         .await
-        .expect("could not create database connection pool");
+        .wrap_err("could not create database connection pool")?;
 
     // Create session store
     let session_store = SessionStore::new();
@@ -98,4 +102,6 @@ pub async fn main() {
     // Probably not going to run
     session_monitor.abort();
     cn_monitor.abort();
+
+    Ok(())
 }

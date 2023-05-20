@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 use axum::{
     extract::{FromRequestParts, State},
-    http::{header, StatusCode},
-    response::IntoResponse,
+    http::StatusCode,
     routing::{get, post},
     Json, Router,
 };
@@ -10,14 +9,10 @@ use axum_extra::extract::CookieJar;
 use chrono::NaiveDateTime;
 use color_eyre::Result;
 use diesel::prelude::*;
-use diesel_async::{
-    pooled_connection::{bb8::RunError, PoolError},
-    RunQueryDsl, UpdateAndFetchResults,
-};
+use diesel_async::RunQueryDsl;
 use futures::TryStreamExt;
 use openidconnect::{url::Url, LogoutRequest, RedirectUrl};
 use serde::Serialize;
-use thiserror::Error;
 use typeshare::typeshare;
 
 mod local;
@@ -27,13 +22,11 @@ pub mod session;
 use crate::{
     config::StatefulConfig,
     model::{LocalLogin, OAuthLogin, PermissionLevel, User},
+    http_error::HttpError,
     AppState, PgConn, PgPool, SessionStore,
 };
 
-use self::{
-    oauth::OAuthClients,
-    session::{SESSION_COOKIE_NAME, SESSION_TTL},
-};
+use self::oauth::OAuthClients;
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -113,14 +106,14 @@ impl User {
     }
 }
 
-struct UserFromParts {
+pub struct UserFromParts {
     user: User,
     jar: CookieJar,
 }
 
 #[async_trait]
 impl FromRequestParts<AppState> for UserFromParts {
-    type Rejection = StatusCode;
+    type Rejection = HttpError;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
@@ -130,61 +123,19 @@ impl FromRequestParts<AppState> for UserFromParts {
         let mut jar = CookieJar::from_request_parts(parts, state).await.unwrap();
 
         // Get the user
-        let conn = &mut state
-            .pool
-            .get()
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let conn = &mut state.pool.get().await?;
         // Gets user and updates session TTL
         let user = User::from_jar(&jar, &state.session_store, conn)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-            .ok_or(StatusCode::FORBIDDEN)?;
+            .await?
+            .ok_or(HttpError::WithCode {
+                code: StatusCode::FORBIDDEN,
+                msg: "No user found",
+            })?;
 
         // Update cookie TTL
         jar = state.session_store.reup(jar).await;
 
         Ok(UserFromParts { user, jar })
-    }
-}
-
-#[derive(Error, Debug)]
-pub enum UserError {
-    #[error("No user with that username, email, or password was found")]
-    UserNotFound,
-    #[error("A user with this email already exists")]
-    UserAlreadyExists,
-    #[error("Database error: `{0}`")]
-    DatabaseError(String),
-    #[error("An error occured: `{0}`")]
-    Other(String),
-}
-
-impl UserError {
-    fn get_status_code(&self) -> StatusCode {
-        match self {
-            UserError::UserNotFound => StatusCode::FORBIDDEN,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        }
-    }
-
-    fn from_diesel_error(e: diesel::result::Error) -> Self {
-        UserError::DatabaseError(e.to_string())
-    }
-
-    fn from_pool_error(e: RunError) -> Self {
-        UserError::DatabaseError(format!("Internal pool error: {}", e))
-    }
-}
-
-impl IntoResponse for UserError {
-    fn into_response(self) -> axum::response::Response {
-        (
-            self.get_status_code(),
-            [(header::CONTENT_TYPE, "text/plain")],
-            self.to_string(),
-        )
-            .into_response()
     }
 }
 
@@ -247,17 +198,9 @@ impl From<OAuthLogin> for OAuthLoginData {
 async fn get_user(
     UserFromParts { user, jar }: UserFromParts,
     State(pool): State<PgPool>,
-) -> Result<(CookieJar, Json<UserData>), StatusCode> {
-    let mut conn = pool
-        .get()
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let user_data = user
-        .to_user_data(&mut conn)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
+) -> Result<(CookieJar, Json<UserData>), HttpError> {
+    let mut conn = pool.get().await?;
+    let user_data = user.to_user_data(&mut conn).await?;
     Ok((jar, Json(user_data)))
 }
 
