@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use axum::routing::get;
 use axum::{Router, Server};
 use axum_macros::FromRef;
@@ -90,6 +88,7 @@ pub async fn main() -> Result<()> {
     // Build routes
     let app = Router::new()
         .nest("/user", user::router())
+        .nest("/location", locations::router())
         .route("/config", get(get_config))
         .with_state(state);
 

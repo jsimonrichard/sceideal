@@ -101,7 +101,10 @@ pub struct NewTopic<'a> {
     pub lockout: Option<&'a PgInterval>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Queryable, Selectable, Identifiable)]
+#[typeshare]
+#[derive(
+    Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Queryable, Selectable, Identifiable,
+)]
 #[diesel(belongs_to(User), primary_key(id, user_id))]
 pub struct Location {
     pub id: i32,
@@ -110,19 +113,30 @@ pub struct Location {
     pub name: String,
     pub description: Option<String>,
     pub requirements: Option<String>,
+    #[typeshare(serialized_as = "String")]
     pub created_on: NaiveDateTime,
+    #[typeshare(serialized_as = "String")]
     pub updated_at: NaiveDateTime,
 }
 
 #[derive(Insertable)]
 #[diesel(table_name=locations)]
 pub struct NewLocation<'a> {
-    pub id: i32,
     pub user_id: i32,
     pub type_: Option<&'a str>,
     pub name: &'a str,
     pub description: Option<&'a str>,
     pub requirements: Option<&'a str>,
+}
+
+#[typeshare]
+#[derive(Deserialize, AsChangeset)]
+#[diesel(table_name = locations)]
+pub struct UpdateLocation {
+    pub type_: Option<String>,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub requirements: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq, Queryable, Identifiable, Associations)]
