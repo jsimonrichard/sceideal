@@ -8,13 +8,14 @@ use diesel_async::RunQueryDsl;
 use serde::Deserialize;
 use typeshare::typeshare;
 
+use crate::http_error::HttpError;
 use crate::model::{NewLocalLogin, PermissionLevel};
 use crate::{
     model::{LocalLogin, NewUser, User},
     schema::{local_logins, users},
     user::{
         session::{SessionData, SessionStore},
-        UserData, UserError,
+        UserData,
     },
     AppState, PgPool,
 };
@@ -41,8 +42,8 @@ async fn sign_up(
     State(session): State<SessionStore>,
     mut jar: CookieJar,
     Json(create_user): Json<CreateUser>,
-) -> Result<(CookieJar, Json<UserData>), UserError> {
-    let conn = &mut pool.get().await.map_err(UserError::from_pool_error)?;
+) -> Result<(CookieJar, Json<UserData>), HttpError> {
+    let conn = &mut pool.get().await?;
 
     let CreateUser {
         email,
@@ -71,34 +72,28 @@ async fn sign_up(
         .await
         .map_err(|e| {
             if let diesel::result::Error::DatabaseError(DatabaseErrorKind::UniqueViolation, _) = e {
-                UserError::UserAlreadyExists
+                HttpError::internal("a user with this email already exists")
             } else {
-                UserError::from_diesel_error(e)
+                e.into()
             }
         })?;
 
     // Create the login method for the user
     let new_local_login = NewLocalLogin {
         user_id: id,
-        hash: &bcrypt::hash(password, bcrypt::DEFAULT_COST)
-            .map_err(|e| UserError::Other(e.to_string()))?,
+        hash: &bcrypt::hash(password, bcrypt::DEFAULT_COST)?,
     };
 
     insert_into(local_logins::table)
         .values(new_local_login)
         .execute(conn)
-        .await
-        .map_err(UserError::from_diesel_error)?;
+        .await?;
 
     // Return user data
     let user = User::get(id, conn)
-        .await
-        .map_err(UserError::from_diesel_error)?
-        .ok_or(UserError::UserNotFound)?;
-    let user_data = user
-        .to_user_data(conn)
-        .await
-        .map_err(UserError::from_diesel_error)?;
+        .await?
+        .ok_or(HttpError::internal("user not found"))?;
+    let user_data = user.to_user_data(conn).await?;
 
     // Start session
     jar = session.insert(SessionData::new(user.id), jar).await;
@@ -118,30 +113,25 @@ async fn login(
     State(session): State<SessionStore>,
     mut jar: CookieJar,
     Json(login_data): Json<LoginData>,
-) -> Result<(CookieJar, Json<UserData>), UserError> {
-    let conn = &mut pool.get().await.map_err(UserError::from_pool_error)?;
+) -> Result<(CookieJar, Json<UserData>), HttpError> {
+    let conn = &mut pool.get().await?;
 
     let LoginData { email, password } = login_data;
     let user = User::find(&email, conn)
-        .await
-        .map_err(UserError::from_diesel_error)?
-        .ok_or(UserError::UserNotFound)?;
+        .await?
+        .ok_or(HttpError::internal("user not found"))?;
 
     if let Some(local_login_info) = LocalLogin::belonging_to(&user)
         .first::<LocalLogin>(conn)
         .await
-        .optional()
-        .map_err(UserError::from_diesel_error)?
+        .optional()?
     {
-        if bcrypt::verify(password, &local_login_info.hash).map_err(|_| UserError::UserNotFound)? {
-            let user_data = user
-                .to_user_data(conn)
-                .await
-                .map_err(UserError::from_diesel_error)?;
+        if bcrypt::verify(password, &local_login_info.hash)? {
+            let user_data = user.to_user_data(conn).await?;
             jar = session.insert(SessionData::new(user.id), jar).await;
             return Ok((jar, Json(user_data)));
         }
     }
 
-    Err(UserError::UserNotFound)
+    Err(HttpError::internal("user not found"))
 }

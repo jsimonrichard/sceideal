@@ -23,7 +23,7 @@ use retainer::Cache;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::task::JoinHandle;
-use tracing::{trace, warn};
+use tracing::warn;
 use typeshare::typeshare;
 
 use crate::{
