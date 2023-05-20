@@ -45,21 +45,13 @@ async fn sign_up(
 ) -> Result<(CookieJar, Json<UserData>), HttpError> {
     let conn = &mut pool.get().await?;
 
-    let CreateUser {
-        email,
-        phone_number,
-        fname,
-        lname,
-        password,
-    } = &create_user;
-
     // Create the user
     let new_user_data = NewUser {
-        email,
+        email: &create_user.email,
         email_verified: false,
-        phone_number: phone_number.as_ref().map(String::as_str),
-        fname,
-        lname,
+        phone_number: create_user.phone_number.as_ref().map(String::as_str),
+        fname: &create_user.fname,
+        lname: &create_user.lname,
         bio: None,
         profile_image: None,
         permission_level: PermissionLevel::Student,
@@ -81,7 +73,7 @@ async fn sign_up(
     // Create the login method for the user
     let new_local_login = NewLocalLogin {
         user_id: id,
-        hash: &bcrypt::hash(password, bcrypt::DEFAULT_COST)?,
+        hash: &bcrypt::hash(create_user.password, bcrypt::DEFAULT_COST)?,
     };
 
     insert_into(local_logins::table)
