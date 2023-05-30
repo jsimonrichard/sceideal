@@ -2,8 +2,16 @@
 
 pub mod sql_types {
     #[derive(diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "location_type"))]
+    pub struct LocationType;
+
+    #[derive(diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "permission_level"))]
     pub struct PermissionLevel;
+
+    #[derive(diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "provision"))]
+    pub struct Provision;
 }
 
 diesel::table! {
@@ -11,7 +19,6 @@ diesel::table! {
         id -> Int4,
         name -> Text,
         description -> Nullable<Text>,
-        requirements -> Nullable<Text>,
         public -> Bool,
         user_id -> Nullable<Int4>,
         allow_multiple_students -> Bool,
@@ -25,7 +32,7 @@ diesel::table! {
 
 diesel::table! {
     appointments (id) {
-        id -> Uuid,
+        id -> Int4,
         user_id -> Int4,
         time -> Timestamptz,
         topic_id -> Int4,
@@ -38,18 +45,17 @@ diesel::table! {
 }
 
 diesel::table! {
-    can_teach_in (user_id, class_id) {
+    can_teach (user_id, topic_id) {
         user_id -> Int4,
-        class_id -> Int4,
-        started_on -> Timestamp,
+        topic_id -> Int4,
+        since -> Timestamp,
     }
 }
 
 diesel::table! {
-    class (id) {
+    groups (id) {
         id -> Int4,
         name -> Text,
-        instructor_email -> Nullable<Text>,
         description -> Nullable<Text>,
         public -> Bool,
         created_on -> Timestamp,
@@ -60,7 +66,7 @@ diesel::table! {
 diesel::table! {
     is_attending (id) {
         id -> Int4,
-        appointment_id -> Uuid,
+        appointment_id -> Int4,
         notes -> Nullable<Text>,
         user_id -> Nullable<Int4>,
         non_user_id -> Nullable<Int4>,
@@ -71,9 +77,9 @@ diesel::table! {
 }
 
 diesel::table! {
-    is_student_in (user_id, class_id) {
+    is_member_of (user_id, group_id) {
         user_id -> Int4,
-        class_id -> Int4,
+        group_id -> Int4,
         joined_on -> Timestamp,
     }
 }
@@ -87,14 +93,17 @@ diesel::table! {
 }
 
 diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::LocationType;
+
     locations (id, user_id) {
         id -> Int4,
+        public -> Bool,
         user_id -> Int4,
         #[sql_name = "type"]
-        type_ -> Nullable<Text>,
+        type_ -> LocationType,
         name -> Text,
         description -> Nullable<Text>,
-        requirements -> Nullable<Text>,
         created_on -> Timestamp,
         updated_at -> Timestamp,
     }
@@ -111,10 +120,19 @@ diesel::table! {
 }
 
 diesel::table! {
-    oauth_logins (provider, associated_email) {
+    use diesel::sql_types::*;
+    use super::sql_types::Provision;
+
+    oauth_connections (user_id, provider, provides) {
         user_id -> Int4,
         provider -> Text,
-        associated_email -> Text,
+        provides -> Provision,
+        access_token -> Text,
+        access_token_expires -> Nullable<Timestamp>,
+        refresh_token -> Nullable<Text>,
+        refresh_token_expires -> Nullable<Timestamp>,
+        oid_subject -> Nullable<Text>,
+        created_on -> Timestamp,
         updated_at -> Timestamp,
     }
 }
@@ -127,19 +145,12 @@ diesel::table! {
 }
 
 diesel::table! {
-    teaches (user_id, topic_id) {
-        user_id -> Int4,
-        topic_id -> Int4,
-        since -> Timestamp,
-    }
-}
-
-diesel::table! {
     topics (id) {
         id -> Int4,
         name -> Text,
         description -> Nullable<Text>,
-        requirements -> Nullable<Text>,
+        public -> Bool,
+        group_id -> Nullable<Int4>,
         lockout -> Nullable<Interval>,
         created_on -> Timestamp,
         updated_at -> Timestamp,
@@ -180,35 +191,33 @@ diesel::joinable!(appointment_types -> users (user_id));
 diesel::joinable!(appointments -> appointment_types (appointment_type_id));
 diesel::joinable!(appointments -> topics (topic_id));
 diesel::joinable!(appointments -> users (user_id));
-diesel::joinable!(can_teach_in -> class (class_id));
-diesel::joinable!(can_teach_in -> users (user_id));
+diesel::joinable!(can_teach -> topics (topic_id));
+diesel::joinable!(can_teach -> users (user_id));
 diesel::joinable!(is_attending -> appointments (appointment_id));
 diesel::joinable!(is_attending -> non_users (non_user_id));
 diesel::joinable!(is_attending -> users (user_id));
-diesel::joinable!(is_student_in -> class (class_id));
-diesel::joinable!(is_student_in -> users (user_id));
+diesel::joinable!(is_member_of -> groups (group_id));
+diesel::joinable!(is_member_of -> users (user_id));
 diesel::joinable!(local_logins -> users (user_id));
 diesel::joinable!(locations -> users (user_id));
-diesel::joinable!(oauth_logins -> users (user_id));
+diesel::joinable!(oauth_connections -> users (user_id));
 diesel::joinable!(provides_type -> appointment_types (appointment_type_id));
 diesel::joinable!(provides_type -> users (user_id));
-diesel::joinable!(teaches -> topics (topic_id));
-diesel::joinable!(teaches -> users (user_id));
+diesel::joinable!(topics -> groups (group_id));
 diesel::joinable!(uploads -> is_attending (is_attending_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     appointment_types,
     appointments,
-    can_teach_in,
-    class,
+    can_teach,
+    groups,
     is_attending,
-    is_student_in,
+    is_member_of,
     local_logins,
     locations,
     non_users,
-    oauth_logins,
+    oauth_connections,
     provides_type,
-    teaches,
     topics,
     uploads,
     users,

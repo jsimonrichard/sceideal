@@ -3,7 +3,8 @@ bind_address = "127.0.0.1:3001"
 base_url = "http:/127.0.0.1:3000"
 live_reloading = true
 
-[oauth_providers.keycloak]
+[integrations.keycloak]
 issuer_url = "https://keycloak-server/realms/master"
 client_id = "sceideal-dev"
 client_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+provides = ["auth"]

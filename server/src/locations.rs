@@ -12,7 +12,7 @@ use typeshare::typeshare;
 
 use crate::{
     http_error::HttpError,
-    model::{Location, NewLocation, UpdateLocation},
+    model::{Location, LocationType, NewLocation, UpdateLocation},
     schema::locations,
     user::{TeacherFromParts, UserFromParts},
     AppState, PgPool,
@@ -20,9 +20,9 @@ use crate::{
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/u", get(get_my_locations).post(create_location))
+        .route("/me", get(get_my_locations).post(create_location))
         .route(
-            "/u/:location_id",
+            "/me/:location_id",
             get(get_my_location)
                 .put(update_location)
                 .delete(delete_location),
@@ -103,10 +103,9 @@ async fn get_location(
 #[typeshare]
 #[derive(Deserialize)]
 pub struct CreateLocation {
-    type_: Option<String>,
+    type_: LocationType,
     name: String,
     description: Option<String>,
-    requirements: Option<String>,
 }
 #[axum_macros::debug_handler(state = AppState)]
 async fn create_location(
@@ -116,10 +115,9 @@ async fn create_location(
 ) -> Result<(CookieJar, String), HttpError> {
     let new_location_data = NewLocation {
         user_id: user.id,
-        type_: create_location.type_.as_deref(),
+        type_: create_location.type_,
         name: &create_location.name,
         description: create_location.description.as_deref(),
-        requirements: create_location.requirements.as_deref(),
     };
 
     let mut conn = pool.get().await?;

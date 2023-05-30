@@ -9,17 +9,20 @@ use diesel_async::pooled_connection::bb8::{Pool, PooledConnection};
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use diesel_async::AsyncPgConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+use oauth::{CsrfCache, OAuthClients};
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
-use user::oauth::{CsrfNonceCache, OAuthClients};
+use user::openid_connect::{CsrfNonceCache, OpenIdClients};
 use user::session::SessionStore;
 
 use crate::config::get_config;
 
 mod config;
 mod http_error;
+mod integrations;
 mod locations;
 mod model;
+mod oauth;
 mod schema;
 mod user;
 
@@ -34,6 +37,8 @@ pub struct AppState {
     session_store: SessionStore,
     config: StatefulConfig,
     oauth_clients: OAuthClients,
+    c_cache: CsrfCache,
+    openid_clients: OpenIdClients,
     cn_cache: CsrfNonceCache,
 }
 
@@ -70,6 +75,10 @@ pub async fn main() -> Result<()> {
     let session_store = SessionStore::new();
     let session_monitor = session_store.spawn_monitor_thread();
 
+    // Create csrf cache
+    let c_cache = CsrfCache::new();
+    let c_cache_monitor = c_cache.spawn_monitor_thread();
+
     // Create csrf-nonce cache
     let cn_cache = CsrfNonceCache::new();
     let cn_monitor = cn_cache.spawn_monitor_thread();
@@ -77,17 +86,21 @@ pub async fn main() -> Result<()> {
     // App state and other things
     let addr = config.read().await.bind_address;
     let oauth_clients = OAuthClients::from_config(&*config.read().await).await;
+    let openid_clients = OpenIdClients::from_config(&*config.read().await).await;
     let state = AppState {
         pool,
         session_store,
         config,
         oauth_clients,
+        c_cache,
+        openid_clients,
         cn_cache,
     };
 
     // Build routes
     let app = Router::new()
         .nest("/user", user::router())
+        .nest("/oauth", oauth::router())
         .nest("/location", locations::router())
         .route("/config", get(get_config))
         .with_state(state);
@@ -100,6 +113,7 @@ pub async fn main() -> Result<()> {
 
     // Probably not going to run
     session_monitor.abort();
+    c_cache_monitor.abort();
     cn_monitor.abort();
 
     Ok(())

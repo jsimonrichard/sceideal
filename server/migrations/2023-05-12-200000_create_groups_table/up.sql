@@ -1,8 +1,6 @@
-CREATE TABLE class (
+CREATE TABLE groups (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
-
-    instructor_email EMAIL,
     description TEXT,
     
     public BOOLEAN NOT NULL,
@@ -12,4 +10,4 @@ CREATE TABLE class (
     updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp
 );
 
-SELECT diesel_manage_updated_at('class'::regclass);
+SELECT diesel_manage_updated_at('groups'::regclass);

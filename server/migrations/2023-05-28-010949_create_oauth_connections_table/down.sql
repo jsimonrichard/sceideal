@@ -1,0 +1,2 @@
+DROP TABLE oauth_connections;
+DROP TYPE PROVISION;

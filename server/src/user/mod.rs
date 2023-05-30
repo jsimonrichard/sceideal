@@ -11,27 +11,27 @@ use color_eyre::Result;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use futures::TryStreamExt;
-use openidconnect::{url::Url, LogoutRequest, RedirectUrl};
+use openidconnect::{url::Url, LogoutRequest, PostLogoutRedirectUrl};
 use serde::Serialize;
 use typeshare::typeshare;
 
 mod local;
-pub mod oauth;
+pub mod openid_connect;
 pub mod session;
 
 use crate::{
     config::StatefulConfig,
     http_error::HttpError,
-    model::{LocalLogin, OAuthLogin, PermissionLevel, User},
+    model::{LocalLogin, OAuthConnection, OAuthProvision, PermissionLevel, User},
     AppState, PgConn, PgPool, SessionStore,
 };
 
-use self::oauth::OAuthClients;
+use self::openid_connect::OpenIdClients;
 
 pub fn router() -> Router<AppState> {
     Router::new()
         .nest("/local", local::router())
-        .nest("/oauth", oauth::router())
+        .nest("/openidconnect", openid_connect::router())
         .route("/", get(get_user))
         .route("/logout", post(logout))
 }
@@ -80,8 +80,8 @@ impl User {
             .await
             .optional()?
             .map(|l| l.into());
-        let oauth_login_list = OAuthLogin::belonging_to(&self)
-            .load_stream::<OAuthLogin>(conn)
+        let oauth_login_list = OAuthConnection::belonging_to(&self)
+            .load_stream::<OAuthConnection>(conn)
             .await?
             .try_fold(Vec::new(), |mut acc, item| {
                 acc.push(item.into());
@@ -195,7 +195,7 @@ pub struct UserData {
     #[typeshare(serialized_as = "Option<String>")]
     pub last_login: Option<NaiveDateTime>,
     pub local_login: Option<LocalLoginData>,
-    pub oauth_providers: Vec<OAuthLoginData>,
+    pub oauth_providers: Vec<OAuthConnectionData>,
 }
 
 #[typeshare]
@@ -215,18 +215,21 @@ impl From<LocalLogin> for LocalLoginData {
 
 #[typeshare]
 #[derive(Serialize)]
-pub struct OAuthLoginData {
+pub struct OAuthConnectionData {
     pub provider: String,
-    pub associated_email: String,
+    pub provides: OAuthProvision,
+    #[typeshare(serialized_as = "String")]
+    pub created_on: NaiveDateTime,
     #[typeshare(serialized_as = "String")]
     pub updated_at: NaiveDateTime,
 }
 
-impl From<OAuthLogin> for OAuthLoginData {
-    fn from(value: OAuthLogin) -> Self {
-        OAuthLoginData {
+impl From<OAuthConnection> for OAuthConnectionData {
+    fn from(value: OAuthConnection) -> Self {
+        Self {
             provider: value.provider,
-            associated_email: value.associated_email,
+            provides: value.provides,
+            created_on: value.created_on,
             updated_at: value.updated_at,
         }
     }
@@ -245,21 +248,27 @@ async fn get_user(
 #[axum_macros::debug_handler(state = AppState)]
 async fn logout(
     State(session): State<SessionStore>,
-    State(oauth_clients): State<OAuthClients>,
+    State(oid_clients): State<OpenIdClients>,
     State(config): State<StatefulConfig>,
     jar: CookieJar,
 ) -> (CookieJar, Json<Option<Url>>) {
     let (session_data, jar) = session.remove(jar).await;
 
     let mut logout_url = None;
-    if let Some(record) = session_data.and_then(|data| data.oauth_records.into_iter().next()) {
-        if let Some(client_record) = oauth_clients.get(&record.provider).await {
-            if let Ok(redirect_url) = RedirectUrl::new(config.read().await.base_url.clone()) {
-                logout_url = Some(
-                    LogoutRequest::from(client_record.end_session_endpoint.clone())
-                        .set_redirect_uri(redirect_url)
-                        .url(),
-                );
+    if let Some(provider) = session_data.and_then(|data| {
+        data.rp_logout_providers_with_open_sessions
+            .into_iter()
+            .next()
+    }) {
+        if let Some(client_record) = oid_clients.get(&provider).await {
+            if let Ok(redirect_url) =
+                PostLogoutRedirectUrl::new(config.read().await.base_url.clone())
+            {
+                logout_url = client_record.end_session_endpoint.as_ref().map(|url| {
+                    LogoutRequest::from(url.clone())
+                        .set_post_logout_redirect_uri(redirect_url)
+                        .http_get_url()
+                });
             }
         }
     }

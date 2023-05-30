@@ -7,29 +7,37 @@ export interface PublicConfig {
 	oauth_providers: string[];
 }
 
+export enum LocationType {
+	Address = "Address",
+	Link = "Link",
+	Other = "Other",
+}
+
 export interface CreateLocation {
-	type_?: string;
+	type_: LocationType;
 	name: string;
 	description?: string;
-	requirements?: string;
 }
 
 export interface Location {
 	id: number;
+	public: boolean;
 	user_id: number;
-	type_?: string;
+	type_: LocationType;
 	name: string;
 	description?: string;
-	requirements?: string;
 	created_on: string;
 	updated_at: string;
 }
 
 export interface UpdateLocation {
-	type_?: string;
+	type_?: LocationType;
 	name?: string;
 	description?: string;
-	requirements?: string;
+}
+
+export interface OAuthErrorMessage {
+	error_msg: string;
 }
 
 export interface CreateUser {
@@ -55,9 +63,16 @@ export interface LocalLoginData {
 	updated_at: string;
 }
 
-export interface OAuthLoginData {
+export enum OAuthProvision {
+	Auth = "auth",
+	Location = "location",
+	Calendar = "calendar",
+}
+
+export interface OAuthConnectionData {
 	provider: string;
-	associated_email: string;
+	provides: OAuthProvision;
+	created_on: string;
 	updated_at: string;
 }
 
@@ -74,10 +89,6 @@ export interface UserData {
 	updated_at: string;
 	last_login?: string;
 	local_login?: LocalLoginData;
-	oauth_providers: OAuthLoginData[];
-}
-
-export interface OAuthErrorMessage {
-	error_msg: string;
+	oauth_providers: OAuthConnectionData[];
 }
 

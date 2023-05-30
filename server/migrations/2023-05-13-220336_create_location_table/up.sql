@@ -1,13 +1,15 @@
+CREATE TYPE LOCATION_TYPE AS ENUM ('address', 'link', 'other');
+
 CREATE TABLE locations (
     id SERIAL,
 
-    -- Owner
-    user_id INTEGER REFERENCES users,
+    public BOOLEAN NOT NULL,
+    user_id INT REFERENCES users,
+    CHECK (public OR user_id IS NOT NULL),
 
-    type TEXT, -- Helps web client display description correctly
+    type LOCATION_TYPE NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
-    requirements TEXT,
 
     -- Time stuff
     created_on TIMESTAMP NOT NULL DEFAULT current_timestamp,

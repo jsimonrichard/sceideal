@@ -85,7 +85,6 @@ pub struct Topic {
     pub id: i32,
     pub name: String,
     pub description: Option<String>,
-    pub requirements: Option<String>,
     pub lockout: Option<PgInterval>,
     pub created_on: NaiveDateTime,
     pub updated_at: NaiveDateTime,
@@ -97,8 +96,16 @@ pub struct NewTopic<'a> {
     pub id: i32,
     pub name: &'a str,
     pub description: Option<&'a str>,
-    pub requirements: Option<&'a str>,
     pub lockout: Option<&'a PgInterval>,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, DbEnum, Serialize, Deserialize)]
+#[ExistingTypePath = "crate::schema::sql_types::LocationType"]
+pub enum LocationType {
+    Address,
+    Link,
+    Other,
 }
 
 #[typeshare]
@@ -108,11 +115,11 @@ pub struct NewTopic<'a> {
 #[diesel(belongs_to(User), primary_key(id, user_id))]
 pub struct Location {
     pub id: i32,
+    pub public: bool,
     pub user_id: i32,
-    pub type_: Option<String>,
+    pub type_: LocationType,
     pub name: String,
     pub description: Option<String>,
-    pub requirements: Option<String>,
     #[typeshare(serialized_as = "String")]
     pub created_on: NaiveDateTime,
     #[typeshare(serialized_as = "String")]
@@ -123,35 +130,54 @@ pub struct Location {
 #[diesel(table_name=locations)]
 pub struct NewLocation<'a> {
     pub user_id: i32,
-    pub type_: Option<&'a str>,
+    pub type_: LocationType,
     pub name: &'a str,
     pub description: Option<&'a str>,
-    pub requirements: Option<&'a str>,
 }
 
 #[typeshare]
 #[derive(Deserialize, AsChangeset)]
 #[diesel(table_name = locations)]
 pub struct UpdateLocation {
-    pub type_: Option<String>,
+    pub type_: Option<LocationType>,
     pub name: Option<String>,
     pub description: Option<String>,
-    pub requirements: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Eq, Queryable, Identifiable, Associations)]
-#[diesel(belongs_to(User), table_name = oauth_logins, primary_key(provider, associated_email))]
-pub struct OAuthLogin {
+#[typeshare]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, DbEnum, Hash, Serialize, Deserialize)]
+#[ExistingTypePath = "crate::schema::sql_types::Provision"]
+#[serde(rename_all = "lowercase")]
+pub enum OAuthProvision {
+    Auth,
+    Location,
+    Calendar,
+}
+
+#[derive(Debug, PartialEq, Eq, Queryable, Identifiable, Associations, Selectable)]
+#[diesel(belongs_to(User), table_name = oauth_connections, primary_key(user_id, provider, provides))]
+pub struct OAuthConnection {
     pub user_id: i32,
     pub provider: String,
-    pub associated_email: String,
+    pub provides: OAuthProvision,
+    pub access_token: String,
+    pub access_token_expires: Option<NaiveDateTime>,
+    pub refresh_token: Option<String>,
+    pub refresh_token_expires: Option<NaiveDateTime>,
+    pub oid_subject: Option<String>,
+    pub created_on: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
 
-#[derive(Insertable)]
-#[diesel(table_name = oauth_logins)]
-pub struct NewOAuthLogin<'a> {
+#[derive(Insertable, AsChangeset)]
+#[diesel(table_name = oauth_connections)]
+pub struct NewOAuthConnection<'a> {
     pub user_id: i32,
     pub provider: &'a str,
-    pub associated_email: &'a str,
+    pub provides: &'a OAuthProvision,
+    pub access_token: &'a str,
+    pub access_token_expires: Option<&'a NaiveDateTime>,
+    pub refresh_token: Option<&'a str>,
+    pub refresh_token_expires: Option<&'a NaiveDateTime>,
+    pub oid_subject: Option<&'a str>,
 }

@@ -2,7 +2,6 @@ use std::{sync::Arc, time::Duration};
 
 use axum_extra::extract::CookieJar;
 use cookie::{Cookie, SameSite};
-use openidconnect::core::CoreTokenResponse;
 use rand::{distributions::Alphanumeric, Rng};
 use retainer::{entry::CacheReadGuard, Cache};
 use tokio::task::JoinHandle;
@@ -10,50 +9,37 @@ use tokio::task::JoinHandle;
 pub const SESSION_COOKIE_NAME: &str = "sid";
 pub const SESSION_TTL: u64 = 3600 * 5; // 5 hrs in seconds
 
-pub struct OAuthRecord {
-    pub provider: String,
-    pub token_response: CoreTokenResponse,
-}
-
 pub struct SessionData {
     pub user_id: i32,
-
-    // Use in place of a hashmap because the number of providers is small
-    // and the number of sessions is large
-    pub oauth_records: Vec<OAuthRecord>,
+    pub rp_logout_providers_with_open_sessions: Vec<String>,
 }
 
 impl SessionData {
     pub fn new(user_id: i32) -> Self {
         Self {
             user_id,
-            oauth_records: Vec::new(),
+            rp_logout_providers_with_open_sessions: Vec::new(),
         }
     }
 
-    pub fn update_oauth_records(&mut self, oauth_record: OAuthRecord) {
-        if let Some(i) = self
-            .oauth_records
-            .iter()
-            .position(|r| r.provider == oauth_record.provider)
+    fn add_rp_providers(&mut self, provider: String) {
+        if !self
+            .rp_logout_providers_with_open_sessions
+            .contains(&provider)
         {
-            self.oauth_records[i] = oauth_record;
-        } else {
-            self.oauth_records.push(oauth_record);
+            self.rp_logout_providers_with_open_sessions.push(provider);
         }
-    }
-
-    pub fn get_oauth_token(&self, provider: String) -> Option<&CoreTokenResponse> {
-        self.oauth_records
-            .iter()
-            .filter(|r| r.provider == provider)
-            .map(|r| &r.token_response)
-            .next()
     }
 }
 
 #[derive(Clone)]
 pub struct SessionStore(Arc<Cache<String, SessionData>>);
+
+impl Default for SessionStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl SessionStore {
     pub fn new() -> Self {
@@ -96,7 +82,7 @@ impl SessionStore {
         self.0.get(&sid).await
     }
 
-    pub async fn reup(&self, mut jar: CookieJar) -> CookieJar {
+    pub async fn reup(&self, jar: CookieJar) -> CookieJar {
         if let Some(cookie) = jar.get(SESSION_COOKIE_NAME) {
             let sid = cookie.value().to_string();
             self.0
@@ -118,13 +104,11 @@ impl SessionStore {
         (session_data, jar)
     }
 
-    pub async fn update(&self, jar: &CookieJar, oauth_record: OAuthRecord) {
+    pub async fn add_rp_provider(&self, jar: &CookieJar, provider: String) {
         if let Some(cookie) = jar.get(SESSION_COOKIE_NAME) {
             let sid = cookie.value().to_string();
             self.0
-                .update(&sid, |session_data| {
-                    session_data.update_oauth_records(oauth_record)
-                })
+                .update(&sid, |session_data| session_data.add_rp_providers(provider))
                 .await;
         }
     }

@@ -7,16 +7,13 @@ use std::{
 
 use axum::{extract::State, Json};
 use color_eyre::{eyre::eyre, Result};
-use notify::{recommended_watcher, RecursiveMode, Watcher};
+use oauth2::{AuthUrl, ClientId, ClientSecret, TokenUrl};
+use openidconnect::IssuerUrl;
 use serde::{Deserialize, Serialize};
-use tokio::{
-    runtime::Handle,
-    sync::{mpsc::channel, RwLock},
-};
-use tracing::{debug, error};
+use tokio::sync::RwLock;
 use typeshare::typeshare;
 
-use crate::AppState;
+use crate::{model::OAuthProvision, AppState};
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -28,15 +25,39 @@ pub struct Config {
     pub allow_signups: bool,
     #[serde(default)]
     pub redirect_to_first_oauth_provider: bool,
-    pub oauth_providers: HashMap<String, OAuthProvider>,
+    pub integrations: HashMap<String, Provider>,
     pub live_reloading: bool,
 }
 
 #[derive(Deserialize)]
-pub struct OAuthProvider {
-    pub client_id: String,
-    pub client_secret: Option<String>,
-    pub issuer_url: String,
+pub struct Provider {
+    pub client_id: ClientId,
+    pub client_secret: Option<ClientSecret>,
+    #[serde(flatten)]
+    pub urls: ProviderUrls,
+    pub provides: Vec<OAuthProvision>,
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(untagged)]
+pub enum ProviderUrls {
+    OAuthOnly {
+        auth_url: AuthUrl,
+        token_url: TokenUrl,
+    },
+    OpenIdConnect {
+        issuer_url: IssuerUrl,
+    },
+}
+
+impl ProviderUrls {
+    pub fn is_open_id(&self) -> bool {
+        matches!(self, Self::OpenIdConnect { .. })
+    }
+
+    pub fn is_oauth_only(&self) -> bool {
+        matches!(self, Self::OAuthOnly { .. })
+    }
 }
 
 pub type StatefulConfig = Arc<RwLock<Config>>;
@@ -108,19 +129,14 @@ impl Config {
 #[derive(Serialize)]
 pub struct PublicConfig {
     pub redirect_to_first_oauth_provider: bool,
-    pub oauth_providers: Vec<String>,
+    pub oauth_providers: Vec<String>, // TODO
 }
 
 impl From<&Config> for PublicConfig {
     fn from(value: &Config) -> Self {
         PublicConfig {
             redirect_to_first_oauth_provider: value.redirect_to_first_oauth_provider,
-            oauth_providers: value
-                .oauth_providers
-                .keys()
-                .into_iter()
-                .map(String::to_owned)
-                .collect(),
+            oauth_providers: value.integrations.keys().map(String::to_owned).collect(),
         }
     }
 }

@@ -1,1 +1,0 @@
-DROP TABLE is_student_in CASCADE;

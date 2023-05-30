@@ -49,7 +49,7 @@ async fn sign_up(
     let new_user_data = NewUser {
         email: &create_user.email,
         email_verified: false,
-        phone_number: create_user.phone_number.as_ref().map(String::as_str),
+        phone_number: create_user.phone_number.as_deref(),
         fname: &create_user.fname,
         lname: &create_user.lname,
         bio: None,

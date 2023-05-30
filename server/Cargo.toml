@@ -22,7 +22,8 @@ dotenvy = "0.15.7"
 futures = "0.3.28"
 indexmap = "1.9.3"
 notify = { version = "5.1.0", default-features = false }
-openidconnect = { git = "https://github.com/jsimonrichard/openidconnect-rs", features = ["reqwest"] }
+oauth2 = { version = "4.4.0", features = ["reqwest"] }
+openidconnect = { version = "3.1.1", features = ["reqwest"] }
 rand = { version = "0.8.5", features = ["min_const_gen", "std_rng"] }
 retainer = { git = "https://github.com/jsimonrichard/retainer.git" }
 serde = { version = "1.0.159", features = ["derive"] }

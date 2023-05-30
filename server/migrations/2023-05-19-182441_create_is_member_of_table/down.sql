@@ -1,0 +1,1 @@
+DROP TABLE is_member_of CASCADE;

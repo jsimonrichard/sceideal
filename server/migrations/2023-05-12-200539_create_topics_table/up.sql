@@ -3,7 +3,10 @@ CREATE TABLE topics (
 
     name TEXT NOT NULL,
     description TEXT,
-    requirements TEXT,
+
+    public BOOLEAN NOT NULL,
+    group_id INT REFERENCES groups,
+    CHECK (public OR group_id IS NOT NULL),
 
     -- Lock out sign ups for specific topics sooner
     lockout INTERVAL,

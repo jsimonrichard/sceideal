@@ -2,11 +2,10 @@ CREATE TABLE appointment_types (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT,
-    requirements TEXT,
 
     public BOOLEAN NOT NULL,
     user_id INT REFERENCES users,
-    CHECK (public OR user IS NOT NULL),
+    CHECK (public OR user_id IS NOT NULL),
 
     allow_multiple_students BOOLEAN NOT NULL DEFAULT false,
 

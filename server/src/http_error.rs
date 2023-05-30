@@ -24,8 +24,8 @@ macro_rules! constructor {
 impl HttpError {
     constructor!(internal, StatusCode::INTERNAL_SERVER_ERROR);
     constructor!(forbidden, StatusCode::FORBIDDEN);
-    constructor!(bad_request, StatusCode::BAD_REQUEST);
-    constructor!(not_found, StatusCode::NOT_FOUND);
+    // constructor!(bad_request, StatusCode::BAD_REQUEST);
+    // constructor!(not_found, StatusCode::NOT_FOUND);
 
     fn from_report(err: Report) -> Self {
         error!("HTTP handler error: {}", err);
