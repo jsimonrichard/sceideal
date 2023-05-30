@@ -31,7 +31,7 @@ use self::openid_connect::OpenIdClients;
 pub fn router() -> Router<AppState> {
     Router::new()
         .nest("/local", local::router())
-        .nest("/openidconnect", openid_connect::router())
+        .nest("/openid", openid_connect::router())
         .route("/", get(get_user))
         .route("/logout", post(logout))
 }

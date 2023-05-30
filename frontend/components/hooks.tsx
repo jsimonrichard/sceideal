@@ -71,9 +71,6 @@ export const useAuth = (isProtected = false) => {
 
   const router = useRouter();
   useEffect(() => {
-    if (isProtected) {
-      console.log(auth.initialLoadStatus);
-    }
     if (
       isProtected &&
       !auth.user &&

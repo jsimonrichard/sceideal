@@ -13,11 +13,13 @@ export function NavBar() {
   const { execute: executeLogout, status: logoutStatus } = logout();
 
   const {
-    execute: getOAuthUrl,
-    status: oAuthUrlStatus,
-    value: oAuthUrl,
+    execute: getOIDUrl,
+    status: OIDUrlStatus,
+    value: OIDUrl,
   } = useAsync<null, string>(() =>
-    axios.get(`/api/user/oauth/${config?.oauth_providers[0]}/generate_url`)
+    axios.get(
+      `/api/user/openid/${config?.oauth_providers.auth[0]}/generate_url`
+    )
   );
   useEffect(() => {
     if (
@@ -25,7 +27,7 @@ export function NavBar() {
       initialConfigLoadStatus == AsyncStatus.Success ||
       (config && config.redirect_to_first_oauth_provider)
     ) {
-      getOAuthUrl();
+      getOIDUrl();
     }
   }, [initialAuthLoadStatus, initialConfigLoadStatus, config]);
 
@@ -75,8 +77,8 @@ export function NavBar() {
                 initialConfigLoadStatus == AsyncStatus.Pending ||
                 (config &&
                   config.redirect_to_first_oauth_provider &&
-                  (oAuthUrlStatus == AsyncStatus.Idle ||
-                    oAuthUrlStatus == AsyncStatus.Pending))
+                  (OIDUrlStatus == AsyncStatus.Idle ||
+                    OIDUrlStatus == AsyncStatus.Pending))
               ) {
                 return (
                   <div className="navbar-item">
@@ -132,12 +134,8 @@ export function NavBar() {
               }
 
               let url;
-              if (
-                config &&
-                config.redirect_to_first_oauth_provider &&
-                oAuthUrl
-              ) {
-                url = oAuthUrl;
+              if (config && config.redirect_to_first_oauth_provider && OIDUrl) {
+                url = OIDUrl;
               } else {
                 url = "/login";
               }

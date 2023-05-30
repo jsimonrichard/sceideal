@@ -129,14 +129,25 @@ impl Config {
 #[derive(Serialize)]
 pub struct PublicConfig {
     pub redirect_to_first_oauth_provider: bool,
-    pub oauth_providers: Vec<String>, // TODO
+    pub oauth_providers: HashMap<OAuthProvision, Vec<String>>,
 }
 
 impl From<&Config> for PublicConfig {
     fn from(value: &Config) -> Self {
+        let mut oauth_providers: HashMap<OAuthProvision, Vec<String>> = HashMap::new();
+
+        for (provider, data) in value.integrations.iter() {
+            for provision in data.provides.iter() {
+                oauth_providers
+                    .entry(*provision)
+                    .or_default()
+                    .push(provider.clone());
+            }
+        }
+
         PublicConfig {
             redirect_to_first_oauth_provider: value.redirect_to_first_oauth_provider,
-            oauth_providers: value.integrations.keys().map(String::to_owned).collect(),
+            oauth_providers,
         }
     }
 }

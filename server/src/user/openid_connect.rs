@@ -81,7 +81,7 @@ impl OpenIdClients {
                     .as_ref().cloned();
 
                 let redirect_url = match RedirectUrl::new(format!(
-                    "{}/api/user/oauth/{k}/callback",
+                    "{}/api/user/openid/{k}/callback",
                     config.base_url
                 )) {
                     Ok(url) => url,
