@@ -3,7 +3,9 @@ $success: #6abe28;
 // $background-accent: #eceff1;
 $navbar-min-height: 5rem;
 
-@import "../node_modules/bulma/bulma.sass";
+@import "bulma";
+@import "bulma-switch";
+@import "@creativebulma/bulma-tooltip";
 
 .navbar {
   min-height: $navbar-min-height;
@@ -69,4 +71,30 @@ body.has-navbar-fixed-top {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+.page-loader {
+  margin: auto;
+  margin-top: 3rem;
+  @include loader;
+  width: 3rem;
+  height: 3rem;
+}
+
+.profile-pic {
+  border-radius: 50%;
+  background-color: rgba($primary, 0.7);
+  width: 2em;
+  height: 2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  color: #ffffff;
+  line-height: 0.8em;
+}
+
+.loader-row {
+  margin: auto;
+  @include loader;
 }

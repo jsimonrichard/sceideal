@@ -1,7 +1,7 @@
 CREATE TYPE PROVISION AS ENUM ('auth', 'location', 'calendar');
 
 CREATE TABLE oauth_connections (
-    user_id INT REFERENCES users NOT NULL,
+    user_id INT NOT NULL REFERENCES users ON DELETE CASCADE,
     
     provider TEXT NOT NULL,
     provides PROVISION NOT NULL,

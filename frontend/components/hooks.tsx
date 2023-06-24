@@ -7,7 +7,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { CreateUser, LoginData, PublicConfig, UserData } from "../shared-types";
+import { SignUpData, LoginData, PublicConfig, UserData } from "../shared-types";
 
 export enum AsyncStatus {
   Idle,
@@ -113,7 +113,7 @@ function useProvideAuth() {
     );
 
   const sign_up = (redirectUrl?: string) =>
-    useAsync<CreateUser, UserData>(
+    useAsync<SignUpData, UserData>(
       (data) => axios.post<UserData>("/api/user/login", data),
       (response) => {
         setUser(response.data);
@@ -124,7 +124,7 @@ function useProvideAuth() {
     );
 
   const logout = () =>
-    useAsync<CreateUser, string>(
+    useAsync<void, string>(
       () => axios.post("/api/user/logout"),
       (response) => {
         setUser(null);

@@ -5,7 +5,7 @@ CREATE TABLE topics (
     description TEXT,
 
     public BOOLEAN NOT NULL,
-    group_id INT REFERENCES groups,
+    group_id INT REFERENCES groups ON DELETE CASCADE,
     CHECK (public OR group_id IS NOT NULL),
 
     -- Lock out sign ups for specific topics sooner

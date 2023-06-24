@@ -9,7 +9,7 @@ use serde::Deserialize;
 use typeshare::typeshare;
 
 use crate::http_error::HttpError;
-use crate::model::{NewLocalLogin, PermissionLevel};
+use crate::model::NewLocalLogin;
 use crate::{
     model::{LocalLogin, NewUser, User},
     schema::{local_logins, users},
@@ -28,7 +28,7 @@ pub fn router() -> Router<AppState> {
 
 #[typeshare]
 #[derive(Deserialize)]
-pub struct CreateUser {
+pub struct SignUpData {
     email: String,
     phone_number: Option<String>,
     fname: String,
@@ -41,7 +41,7 @@ async fn sign_up(
     State(pool): State<PgPool>,
     State(session): State<SessionStore>,
     mut jar: CookieJar,
-    Json(create_user): Json<CreateUser>,
+    Json(create_user): Json<SignUpData>,
 ) -> Result<(CookieJar, Json<UserData>), HttpError> {
     let conn = &mut pool.get().await?;
 
@@ -54,7 +54,7 @@ async fn sign_up(
         lname: &create_user.lname,
         bio: None,
         profile_image: None,
-        permission_level: PermissionLevel::Student,
+        permission_level: None,
     };
 
     let id: i32 = insert_into(users::table)
@@ -85,7 +85,7 @@ async fn sign_up(
     let user = User::get(id, conn)
         .await?
         .ok_or(HttpError::internal("user not found"))?;
-    let user_data = user.to_user_data(conn).await?;
+    let user_data = user.get_user_data(conn).await?;
 
     // Start session
     jar = session.insert(SessionData::new(user.id), jar).await;
@@ -119,7 +119,7 @@ async fn login(
         .optional()?
     {
         if bcrypt::verify(password, &local_login_info.hash)? {
-            let user_data = user.to_user_data(conn).await?;
+            let user_data = user.get_user_data(conn).await?;
             jar = session.insert(SessionData::new(user.id), jar).await;
             return Ok((jar, Json(user_data)));
         }

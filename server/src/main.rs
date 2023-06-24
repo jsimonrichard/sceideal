@@ -18,6 +18,7 @@ use user::session::SessionStore;
 use crate::config::get_config;
 
 mod config;
+mod group;
 mod http_error;
 mod integrations;
 mod locations;
@@ -25,6 +26,7 @@ mod model;
 mod oauth;
 mod schema;
 mod user;
+mod utils;
 
 pub type PgPool = Pool<AsyncPgConnection>;
 pub type PgConn<'a> = PooledConnection<'a, AsyncPgConnection>;
@@ -46,7 +48,7 @@ pub struct AppState {
 pub async fn main() -> Result<()> {
     // Init tracing
     let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::TRACE)
+        .with_max_level(Level::DEBUG)
         .finish();
     tracing::subscriber::set_global_default(subscriber)?;
 
@@ -102,6 +104,7 @@ pub async fn main() -> Result<()> {
         .nest("/user", user::router())
         .nest("/oauth", oauth::router())
         .nest("/location", locations::router())
+        .nest("/group", group::router())
         .route("/config", get(get_config))
         .with_state(state);
 

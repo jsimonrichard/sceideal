@@ -95,8 +95,8 @@ export function NavBar() {
                     <Link href="/dashboard" className="navbar-item">
                       Dashboard
                     </Link>
-                    <Link href="/classes" className="navbar-item">
-                      Classes
+                    <Link href="/groups" className="navbar-item">
+                      Groups
                     </Link>
                     <Link href="/settings/profile" className="navbar-item">
                       Settings
@@ -114,6 +114,9 @@ export function NavBar() {
                       </a>
 
                       <div className="navbar-dropdown is-right">
+                        <Link className="navbar-item" href="/settings/profile">
+                          Profile
+                        </Link>
                         <Link className="navbar-item" href="/settings/account">
                           Account
                         </Link>

@@ -1,13 +1,13 @@
 CREATE TABLE is_attending (
     id SERIAL PRIMARY KEY,
 
-    appointment_id INT NOT NULL REFERENCES appointments,
+    appointment_id INT NOT NULL REFERENCES appointments ON DELETE CASCADE,
 
     notes TEXT,
     
     -- Client details
-    user_id INT REFERENCES users,
-    non_user_id INT REFERENCES non_users,
+    user_id INT REFERENCES users ON DELETE CASCADE,
+    non_user_id INT REFERENCES non_users ON DELETE CASCADE,
     CHECK (
         (user_id IS NULL) !=
         (non_user_id IS NULL)

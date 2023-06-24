@@ -21,6 +21,7 @@ dirs = "5.0.1"
 dotenvy = "0.15.7"
 futures = "0.3.28"
 indexmap = "1.9.3"
+itertools = "0.10.5"
 notify = { version = "5.1.0", default-features = false }
 oauth2 = { version = "4.4.0", features = ["reqwest"] }
 openidconnect = { version = "3.1.1", features = ["reqwest"] }
@@ -28,6 +29,7 @@ rand = { version = "0.8.5", features = ["min_const_gen", "std_rng"] }
 retainer = { git = "https://github.com/jsimonrichard/retainer.git" }
 serde = { version = "1.0.159", features = ["derive"] }
 serde_urlencoded = "0.7.1"
+serde_with = "3.0.0"
 thiserror = "1.0.40"
 tokio = { version = "1.26.0", features = ["full"] }
 toml = "0.7.3"

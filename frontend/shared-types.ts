@@ -25,6 +25,29 @@ export interface CreateLocation {
 	description?: string;
 }
 
+export enum PermissionLevel {
+	Student = "Student",
+	Teacher = "Teacher",
+	Admin = "Admin",
+}
+
+export interface AdminUpdateUser {
+	email_verified?: boolean;
+	phone_number?: string | null;
+	fname?: string;
+	lname?: string;
+	bio?: string | null;
+	profile_image?: string;
+	permission_level?: PermissionLevel;
+}
+
+export interface UpdateUser {
+	phone_number?: string | null;
+	fname?: string;
+	lname?: string;
+	bio?: string | null;
+}
+
 export interface Location {
 	id: number;
 	public: boolean;
@@ -42,11 +65,32 @@ export interface UpdateLocation {
 	description?: string;
 }
 
+export interface Group {
+	id: number;
+	name: string;
+	description?: string;
+	public: boolean;
+	created_on: string;
+	updated_at: string;
+}
+
+export interface UpdateGroup {
+	name?: string;
+	description?: string;
+	public?: boolean;
+}
+
+export interface CreateGroup {
+	name: string;
+	description?: string;
+	public: boolean;
+}
+
 export interface OAuthErrorMessage {
 	error_msg: string;
 }
 
-export interface CreateUser {
+export interface SignUpData {
 	email: string;
 	phone_number?: string;
 	fname: string;
@@ -59,24 +103,18 @@ export interface LoginData {
 	password: string;
 }
 
-export enum PermissionLevel {
-	Student = "Student",
-	Teacher = "Teacher",
-	Admin = "Admin",
-}
-
 export interface LocalLoginData {
 	updated_at: string;
 }
 
 export interface OAuthConnectionData {
 	provider: string;
-	provides: OAuthProvision;
 	created_on: string;
 	updated_at: string;
 }
 
 export interface UserData {
+	id: number;
 	email: string;
 	email_verified: boolean;
 	phone_number?: string;
@@ -89,6 +127,26 @@ export interface UserData {
 	updated_at: string;
 	last_login?: string;
 	local_login?: LocalLoginData;
-	oauth_providers: OAuthConnectionData[];
+	oauth_providers: Record<OAuthProvision, OAuthConnectionData[]>;
+}
+
+export interface PublicUserData {
+	email: string;
+	phone_number?: string;
+	fname: string;
+	lname: string;
+	bio?: string;
+	profile_image?: string;
+	permission_level: PermissionLevel;
+	joined_on: string;
+}
+
+export interface CreateLocalUser {
+	email: string;
+	phone_number?: string;
+	fname: string;
+	lname: string;
+	permission_level?: PermissionLevel;
+	password: string;
 }
 

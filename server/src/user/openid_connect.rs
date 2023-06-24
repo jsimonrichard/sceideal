@@ -26,7 +26,7 @@ use tracing::warn;
 
 use crate::{
     config::{Config, ProviderUrls, StatefulConfig},
-    model::{NewOAuthConnection, NewUser, OAuthConnection, OAuthProvision, PermissionLevel, User},
+    model::{NewOAuthConnection, NewUser, OAuthConnection, OAuthProvision, User},
     oauth::{impl_oauth_error, OAuthError, OAuthRedirect},
     schema::{oauth_connections, users},
     user::session::{SessionData, SessionStore},
@@ -332,7 +332,7 @@ async fn openid_callback(
                 .ok_or(missing_info_error)?,
             bio: None,
             profile_image: None,
-            permission_level: PermissionLevel::Student,
+            permission_level: None,
         };
 
         let id: i32 = insert_into(users::table)

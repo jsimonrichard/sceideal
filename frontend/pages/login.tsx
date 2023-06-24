@@ -55,7 +55,7 @@ function Login() {
               <p className="help is-danger">{errors.password.message}</p>
             )}
           </div>
-          <div className="field is-grouped is-justify-content-end">
+          <div className="field is-grouped is-grouped-right">
             <div className="control">
               <button
                 className={classNames({

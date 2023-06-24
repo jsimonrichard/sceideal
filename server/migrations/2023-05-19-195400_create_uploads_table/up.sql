@@ -1,6 +1,6 @@
 CREATE TABLE uploads (
     id SERIAL PRIMARY KEY,
-    is_attending_id INT REFERENCES is_attending,
+    is_attending_id INT REFERENCES is_attending ON DELETE CASCADE,
 
     file_name TEXT NOT NULL,
 

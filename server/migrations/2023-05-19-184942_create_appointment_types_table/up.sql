@@ -4,7 +4,7 @@ CREATE TABLE appointment_types (
     description TEXT,
 
     public BOOLEAN NOT NULL,
-    user_id INT REFERENCES users,
+    user_id INT REFERENCES users ON DELETE CASCADE,
     CHECK (public OR user_id IS NOT NULL),
 
     allow_multiple_students BOOLEAN NOT NULL DEFAULT false,
