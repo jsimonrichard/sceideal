@@ -3,6 +3,8 @@ $success: #6abe28;
 // $background-accent: #eceff1;
 $navbar-min-height: 5rem;
 
+$body-overflow-y: auto;
+
 @import "bulma";
 @import "bulma-switch";
 @import "@creativebulma/bulma-tooltip";
@@ -97,4 +99,9 @@ body.has-navbar-fixed-top {
 .loader-row {
   margin: auto;
   @include loader;
+}
+
+.dropdown-psuedo-hover {
+  background-color: hsl(0, 0%, 96%);
+  color: hsl(0, 0%, 4%);
 }

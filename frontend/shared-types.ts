@@ -86,6 +86,10 @@ export interface CreateGroup {
 	public: boolean;
 }
 
+export interface UpdateIsMemberOf {
+	assigned_teacher?: number;
+}
+
 export interface OAuthErrorMessage {
 	error_msg: string;
 }
@@ -131,6 +135,7 @@ export interface UserData {
 }
 
 export interface PublicUserData {
+	id: number;
 	email: string;
 	phone_number?: string;
 	fname: string;
@@ -148,5 +153,10 @@ export interface CreateLocalUser {
 	lname: string;
 	permission_level?: PermissionLevel;
 	password: string;
+}
+
+export interface MembershipData {
+	group: Group;
+	assigned_teacher?: PublicUserData;
 }
 

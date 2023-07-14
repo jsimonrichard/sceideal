@@ -10,7 +10,8 @@ use diesel_async::RunQueryDsl;
 use crate::{
     http_error::HttpError,
     model::{CreateGroup, Group, IsMemberOf, UpdateGroup, User},
-    user::{session::SessionStore, AdminFromParts, UserFromParts},
+    schema,
+    user::{session::SessionStore, AdminFromParts, PublicUserData, UserFromParts},
     AppState, PgPool,
 };
 
@@ -23,6 +24,7 @@ pub fn router() -> Router<AppState> {
             "/a/:id",
             get(get_group_admin).put(update_group).delete(delete_group),
         )
+        .route("/a/:id/members", get(get_group_members))
 }
 
 #[axum_macros::debug_handler(state = AppState)]
@@ -86,8 +88,7 @@ async fn get_group(
     // Check membership
     is_member_of
         .find((user.id, id_))
-        .select(IsMemberOf::as_select())
-        .first(conn)
+        .first::<IsMemberOf>(conn)
         .await
         .optional()?
         .ok_or(HttpError::forbidden("You are not a member of this group"))?;
@@ -181,4 +182,44 @@ async fn delete_group(
     delete(groups.find(id_)).execute(conn).await?;
 
     Ok(jar)
+}
+
+#[axum_macros::debug_handler(state = AppState)]
+async fn get_group_members(
+    AdminFromParts(UserFromParts { jar, .. }): AdminFromParts,
+    State(pool): State<PgPool>,
+    Path(id_): Path<i32>,
+) -> Result<
+    (
+        CookieJar,
+        Json<Vec<(PublicUserData, Option<PublicUserData>)>>,
+    ),
+    HttpError,
+> {
+    use crate::schema::is_member_of::dsl::*;
+    use crate::schema::users::dsl::*;
+
+    let conn = &mut pool.get().await?;
+
+    let (users_alias, teachers_alias) =
+        diesel::alias!(schema::users as users, schema::users as teachers);
+    let member_records: Vec<(IsMemberOf, User, Option<User>)> = is_member_of
+        .filter(group_id.eq(id_))
+        .inner_join(users_alias.on(users_alias.field(id).eq(user_id)))
+        .left_join(teachers_alias.on(teachers_alias.field(id).nullable().eq(assigned_teacher)))
+        .load(conn)
+        .await?;
+
+    let members = member_records
+        .into_iter()
+        .map(|record| {
+            let (_, user, teacher) = record;
+            (
+                user.get_public_user_data(),
+                teacher.map(|u| u.get_public_user_data()),
+            )
+        })
+        .collect();
+
+    Ok((jar, Json(members)))
 }

@@ -18,7 +18,6 @@ export enum TeacherSettingPage {
 export enum AdminSettingPage {
   Users = "users",
   Groups = "groups",
-  Membership = "membership",
 }
 
 type SettingsPage = GeneralSettingPage | TeacherSettingPage | AdminSettingPage;
@@ -32,7 +31,6 @@ const PAGE_TITLES: Record<SettingsPage, string> = {
   [TeacherSettingPage.Locations]: "Locations",
   [AdminSettingPage.Users]: "Users",
   [AdminSettingPage.Groups]: "Groups",
-  [AdminSettingPage.Membership]: "Membership Editor",
 };
 
 export default function SettingsLayout({

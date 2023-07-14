@@ -1,7 +1,7 @@
 import { AsyncStatus, useAuth } from "@/components/hooks";
 import SettingsLayout, {
   GeneralSettingPage,
-} from "@/components/settings_layout";
+} from "@/components/settingsLayout";
 import { PermissionLevel } from "@/shared-types";
 import { faPen } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";

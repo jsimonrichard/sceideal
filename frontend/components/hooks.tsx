@@ -25,7 +25,7 @@ export const useAsync = <I, T>(
   data?: I
 ) => {
   const [status, setStatus] = useState(AsyncStatus.Idle);
-  const [value, setValue] = useState<T | null>();
+  const [value, setValue] = useState<T | null>(null);
   const [error, setError] = useState<Error | AxiosError | null>();
 
   const execute = useCallback(

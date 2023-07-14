@@ -1,7 +1,7 @@
 import SettingsLayout, {
   GeneralSettingPage,
   TeacherSettingPage,
-} from "@/components/settings_layout";
+} from "@/components/settingsLayout";
 import { ReactElement } from "react";
 
 export default function TopicsSettings() {

@@ -9,7 +9,6 @@ use axum::{
 };
 use axum_extra::extract::CookieJar;
 use chrono::NaiveDateTime;
-use color_eyre::Result;
 use diesel::{delete, insert_into, prelude::*, update};
 use diesel_async::RunQueryDsl;
 use futures::TryStreamExt;
@@ -26,8 +25,8 @@ use crate::{
     config::StatefulConfig,
     http_error::HttpError,
     model::{
-        AdminUpdateUser, LocalLogin, NewLocalLogin, NewUser, OAuthConnection, OAuthProvision,
-        PermissionLevel, UpdateUser, User,
+        AdminUpdateUser, CreateIsMemberOf, Group, IsMemberOf, LocalLogin, NewLocalLogin, NewUser,
+        OAuthConnection, OAuthProvision, PermissionLevel, UpdateIsMemberOf, UpdateUser, User,
     },
     AppState, PgConn, PgPool, SessionStore,
 };
@@ -39,12 +38,21 @@ pub fn router() -> Router<AppState> {
         .nest("/local", local::router())
         .nest("/openid", openid_connect::router())
         .route("/", get(get_me).post(add_user).put(update_me))
+        .route("/groups", get(get_my_groups))
+        .route("/groups/:group_id", get(get_my_group_details))
         .route("/logout", post(logout))
         .route("/:id", get(get_user))
         .route("/a", get(get_all_users))
         .route(
             "/a/:id",
             get(get_user_admin).put(update_user).delete(delete_user),
+        )
+        .route("/a/:id/groups", get(get_user_groups))
+        .route(
+            "/a/:id/groups/:group_id",
+            post(add_user_to_group)
+                .delete(remove_user_from_group)
+                .put(update_group_membership),
         )
 }
 
@@ -121,8 +129,9 @@ impl User {
         })
     }
 
-    fn get_public_user_data(&self) -> PublicUserData {
+    pub fn get_public_user_data(&self) -> PublicUserData {
         PublicUserData {
+            id: self.id,
             email: self.email.clone(),
             phone_number: self.phone_number.clone(),
             fname: self.fname.clone(),
@@ -326,6 +335,7 @@ async fn update_me(
 #[typeshare]
 #[derive(Serialize)]
 pub struct PublicUserData {
+    pub id: i32,
     pub email: String,
     pub phone_number: Option<String>,
     pub fname: String,
@@ -503,6 +513,150 @@ async fn delete_user(
     let conn = &mut pool.get().await?;
 
     delete(users).filter(id.eq(id_)).execute(conn).await?;
+
+    Ok(jar)
+}
+
+#[axum_macros::debug_handler(state = AppState)]
+async fn get_my_groups(
+    UserFromParts { jar, user }: UserFromParts,
+    State(pool): State<PgPool>,
+) -> Result<(CookieJar, Json<Vec<(Group, Option<PublicUserData>)>>), HttpError> {
+    use crate::schema::groups;
+    use crate::schema::is_member_of::dsl::*;
+    use crate::schema::users::dsl::*;
+
+    let conn = &mut pool.get().await?;
+
+    let member_records: Vec<(IsMemberOf, Group, Option<User>)> = is_member_of
+        .filter(user_id.eq(user.id))
+        .inner_join(groups::table)
+        .left_join(users.on(id.nullable().eq(assigned_teacher)))
+        .load(conn)
+        .await?;
+
+    let groups = member_records
+        .into_iter()
+        .map(|record| {
+            let (_, group, teacher) = record;
+            (group, teacher.map(|u| u.get_public_user_data()))
+        })
+        .collect();
+
+    Ok((jar, Json(groups)))
+}
+
+#[axum_macros::debug_handler(state = AppState)]
+async fn get_my_group_details(
+    UserFromParts { jar, user }: UserFromParts,
+    Path(group_id_): Path<i32>,
+    State(pool): State<PgPool>,
+) -> Result<(CookieJar, Json<IsMemberOf>), HttpError> {
+    use crate::schema::is_member_of::dsl::*;
+
+    let conn = &mut pool.get().await?;
+
+    let member_record: IsMemberOf = is_member_of.find((user.id, group_id_)).first(conn).await?;
+
+    Ok((jar, Json(member_record)))
+}
+
+#[typeshare]
+#[derive(Serialize)]
+struct MembershipData {
+    group: Group,
+    assigned_teacher: Option<PublicUserData>,
+}
+
+#[axum_macros::debug_handler(state = AppState)]
+async fn get_user_groups(
+    AdminFromParts(UserFromParts { jar, .. }): AdminFromParts,
+    Path(id_): Path<i32>,
+    State(pool): State<PgPool>,
+) -> Result<(CookieJar, Json<Vec<MembershipData>>), HttpError> {
+    use crate::schema::groups;
+    use crate::schema::is_member_of::dsl::*;
+    use crate::schema::users::dsl::*;
+
+    let conn = &mut pool.get().await?;
+
+    let member_records: Vec<(IsMemberOf, Group, Option<User>)> = is_member_of
+        .filter(user_id.eq(id_))
+        .inner_join(groups::table)
+        .left_join(users.on(id.nullable().eq(assigned_teacher)))
+        .load(conn)
+        .await?;
+
+    let groups = member_records
+        .into_iter()
+        .map(|record| {
+            let (_, group, teacher) = record;
+            MembershipData {
+                group,
+                assigned_teacher: teacher.map(|u| u.get_public_user_data()),
+            }
+        })
+        .collect();
+
+    Ok((jar, Json(groups)))
+}
+
+#[axum_macros::debug_handler(state = AppState)]
+async fn add_user_to_group(
+    AdminFromParts(UserFromParts { jar, .. }): AdminFromParts,
+    State(pool): State<PgPool>,
+    Path((user_id_, group_id_)): Path<(i32, i32)>,
+) -> Result<CookieJar, HttpError> {
+    use crate::schema::is_member_of::dsl::*;
+
+    let conn = &mut pool.get().await?;
+
+    let new_member = CreateIsMemberOf {
+        user_id: user_id_,
+        group_id: group_id_,
+        assigned_teacher: None,
+    };
+
+    insert_into(is_member_of)
+        .values(new_member)
+        .execute(conn)
+        .await?;
+
+    Ok(jar)
+}
+
+#[axum_macros::debug_handler(state = AppState)]
+async fn remove_user_from_group(
+    AdminFromParts(UserFromParts { jar, .. }): AdminFromParts,
+    State(pool): State<PgPool>,
+    Path((user_id_, group_id_)): Path<(i32, i32)>,
+) -> Result<CookieJar, HttpError> {
+    use crate::schema::is_member_of::dsl::*;
+
+    let conn = &mut pool.get().await?;
+
+    delete(is_member_of.find((user_id_, group_id_)))
+        .execute(conn)
+        .await?;
+
+    Ok(jar)
+}
+
+#[axum_macros::debug_handler(state = AppState)]
+async fn update_group_membership(
+    AdminFromParts(UserFromParts { jar, .. }): AdminFromParts,
+    State(pool): State<PgPool>,
+    Path((user_id_, group_id_)): Path<(i32, i32)>,
+    Json(update_is_member_of): Json<UpdateIsMemberOf>,
+) -> Result<CookieJar, HttpError> {
+    use crate::schema::is_member_of::dsl::*;
+
+    let conn = &mut pool.get().await?;
+
+    update(is_member_of.find((user_id_, group_id_)))
+        .set(update_is_member_of)
+        .execute(conn)
+        .await?;
 
     Ok(jar)
 }

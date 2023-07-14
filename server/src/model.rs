@@ -250,7 +250,7 @@ pub struct CreateGroup {
     pub public: bool,
 }
 
-#[derive(Debug, PartialEq, Eq, Queryable, Identifiable, Selectable, Associations)]
+#[derive(Debug, PartialEq, Eq, Queryable, Identifiable, Selectable, Associations, Serialize)]
 #[diesel(
     table_name = is_member_of,
     belongs_to(User),
@@ -260,5 +260,22 @@ pub struct CreateGroup {
 pub struct IsMemberOf {
     user_id: i32,
     group_id: i32,
+    assigned_teacher: Option<i32>,
+    updated_at: NaiveDateTime,
     joined_on: NaiveDateTime,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = is_member_of)]
+pub struct CreateIsMemberOf {
+    pub user_id: i32,
+    pub group_id: i32,
+    pub assigned_teacher: Option<i32>,
+}
+
+#[typeshare]
+#[derive(AsChangeset, Deserialize)]
+#[diesel(table_name = is_member_of)]
+pub struct UpdateIsMemberOf {
+    pub assigned_teacher: Option<i32>,
 }

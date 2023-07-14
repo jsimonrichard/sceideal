@@ -1,7 +1,7 @@
 import { AsyncStatus, useAuth } from "@/components/hooks";
 import SettingsLayout, {
   GeneralSettingPage,
-} from "@/components/settings_layout";
+} from "@/components/settingsLayout";
 import { ReactElement } from "react";
 
 interface ProviderRecord {
@@ -34,20 +34,22 @@ export default function AccountSettings() {
           <button className="button is-link">Change Password</button>
         </div>
       )}
-
-      {user?.oauth_providers.auth?.map((provider) => (
-        <button className="button is-medium">
-          <img
-            style={{
-              width: "1.5em",
-              marginRight: "0.5em",
-            }}
-            src={PROVIDER_LOOKUP[provider.provider]?.image}
-            alt={`${provider.provider} logo`}
-          />
-          {PROVIDER_LOOKUP[provider.provider]?.title || provider.provider}
-        </button>
-      ))}
+      <div className="box">
+        <h1 className="title is-4">OAuth Providers</h1>
+        {user?.oauth_providers.auth?.map((provider) => (
+          <div className="block">
+            <img
+              style={{
+                width: "1.5em",
+                marginRight: "0.5em",
+              }}
+              src={PROVIDER_LOOKUP[provider.provider]?.image}
+              alt={`${provider.provider} logo`}
+            />
+            {PROVIDER_LOOKUP[provider.provider]?.title || provider.provider}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

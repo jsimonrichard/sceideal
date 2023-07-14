@@ -80,6 +80,8 @@ diesel::table! {
     is_member_of (user_id, group_id) {
         user_id -> Int4,
         group_id -> Int4,
+        assigned_teacher -> Nullable<Int4>,
+        updated_at -> Timestamp,
         joined_on -> Timestamp,
     }
 }
@@ -197,7 +199,6 @@ diesel::joinable!(is_attending -> appointments (appointment_id));
 diesel::joinable!(is_attending -> non_users (non_user_id));
 diesel::joinable!(is_attending -> users (user_id));
 diesel::joinable!(is_member_of -> groups (group_id));
-diesel::joinable!(is_member_of -> users (user_id));
 diesel::joinable!(local_logins -> users (user_id));
 diesel::joinable!(locations -> users (user_id));
 diesel::joinable!(oauth_connections -> users (user_id));
